@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="225.46231mm"
+   height="262.6246mm"
+   viewBox="0 0 225.46231 262.6246"
+   version="1.1"
+   id="svg5"
+   inkscape:version="1.2.2 (b0a8486541, 2022-12-01)"
+   sodipodi:docname="logo.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview7"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:document-units="mm"
+     showgrid="false"
+     inkscape:zoom="0.457453"
+     inkscape:cx="-6.5580507"
+     inkscape:cy="589.13156"
+     inkscape:window-width="3438"
+     inkscape:window-height="1390"
+     inkscape:window-x="0"
+     inkscape:window-y="24"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="layer1" />
+  <defs
+     id="defs2" />
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(-16.323635,9.5883999)">
+    <rect
+       style="fill:#ffffff;stroke:#000000;stroke-width:2;stroke-dasharray:none;stroke-opacity:1"
+       id="rect234"
+       width="223.46231"
+       height="260.6246"
+       x="17.323635"
+       y="-8.5883999"
+       ry="0.6525709" />
+    <text
+       xml:space="preserve"
+       style="font-weight:600;font-size:75.8756px;font-family:Signika;-inkscape-font-specification:'Signika, Semi-Bold';text-align:end;text-anchor:end;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1"
+       x="222.68526"
+       y="53.018543"
+       id="text290"><tspan
+         sodipodi:role="line"
+         id="tspan288"
+         style="fill:#000000;fill-opacity:1;stroke:none;stroke-width:1"
+         x="222.68526"
+         y="53.018543">YOUR</tspan><tspan
+         sodipodi:role="line"
+         style="fill:#000000;fill-opacity:1;stroke:none;stroke-width:1"
+         x="222.68527"
+         y="147.86305"
+         id="tspan1132">LOGO</tspan><tspan
+         sodipodi:role="line"
+         style="fill:#000000;fill-opacity:1;stroke:none;stroke-width:1"
+         x="222.68527"
+         y="242.70755"
+         id="tspan1130">HERE</tspan></text>
+  </g>
+</svg>

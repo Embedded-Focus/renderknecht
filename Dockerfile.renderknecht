@@ -1,0 +1,49 @@
+FROM python:3.12-bookworm
+
+LABEL org.opencontainers.image.authors="Rainer Poisel <rainer@honeytreelabs.com>"
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN echo "deb http://deb.debian.org/debian unstable main" >> /etc/apt/sources.list && \
+    echo "deb-src http://deb.debian.org/debian unstable main" >> /etc/apt/sources.list
+
+RUN apt update
+RUN apt install -yy \
+        bind9-dnsutils \
+        graphviz \
+        librsvg2-bin \
+        texlive-fonts-extra \
+        texlive-latex-base
+
+RUN wget https://github.com/jgm/pandoc/releases/download/3.2/pandoc-3.2-1-amd64.deb -O /tmp/pandoc-3.2-1-amd64.deb \
+    && dpkg --install /tmp/pandoc-3.2-1-amd64.deb
+
+RUN pip install \
+    Flask \
+    PyYAML \
+    graphviz \
+    gunicorn \
+    httpx
+
+ARG PANDOC_DIR=/.pandoc
+ARG TEMPLATES_DIR=${PANDOC_DIR}/templates
+
+RUN mkdir -p ${TEMPLATES_DIR} \
+    && ln -s ${PANDOC_DIR} /root/.pandoc
+
+ARG TINI_VERSION=v0.19.0
+ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini /tini
+RUN chmod +x /tini
+ENTRYPOINT ["/tini", "--"]
+
+# We just copy the whole application including tests into the pandoc directory.
+# I don't care that this is not perfect. We also use the Flask built-in webserver.
+# That's all good enough for what we want to achieve ...
+
+# CSL styles can be found in this repo: https://github.com/citation-style-language/styles
+COPY ./pandoc-latex-template/eisvogel.tex ${TEMPLATES_DIR}/eisvogel.latex
+COPY ./src/renderknecht ./src/logo.pdf ./src/preamble.yaml ./src/authors.yaml ./src/ieee.csl ${PANDOC_DIR}
+
+WORKDIR ${PANDOC_DIR}
+
+CMD ["flask", "--app", "renderknecht", "run", "--host=0.0.0.0"]
