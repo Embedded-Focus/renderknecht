@@ -1,0 +1,10 @@
+titlepage-color: ffffff
+titlepage-logo: logo.pdf
+titlepage-rule-color: e8ab23
+titlepage-text-color: 395c6b
+titlepage: true
+header-includes:
+- |
+  ```{=latex}
+  \usepackage{pdflscape}
+  ```

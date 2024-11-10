@@ -1,0 +1,3 @@
+[submodule "pandoc-latex-template"]
+	path = pandoc-latex-template
+	url = https://github.com/honeytreelabs/pandoc-latex-template.git
