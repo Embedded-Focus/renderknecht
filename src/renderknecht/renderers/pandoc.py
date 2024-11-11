@@ -36,7 +36,7 @@ def embed_images(markdown: str) -> str:
     app_hostname = os.environ["CMD_DOMAIN"]
 
     # embed images
-    return markdown.replace(f"https://{app_hostname}", "http://app:3000")  # TODO
+    return markdown.replace(f"https://{app_hostname}", "http://app:3000")
 
 
 def render_graphviz(markup: str) -> str:
