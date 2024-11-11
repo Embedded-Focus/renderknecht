@@ -1,31 +1,40 @@
+x-common-env: &common-env
+  CMD_DOMAIN: localhost:${CMD_PORT}
 services:
   reverse-proxy:
     image: caddy:2.9-alpine
     volumes:
     - ./Caddyfile:/etc/caddy/Caddyfile
     ports:
-    - 8080:80
+    - "${CMD_PORT}:80"
   database:
     image: postgres:17-alpine
     environment:
-    - POSTGRES_DB=hedgedoc
-    - POSTGRES_USER=hedgedoc
-    - POSTGRES_PASSWORD=password
+      POSTGRES_DB: hedgedoc
+      POSTGRES_USER: hedgedoc
+      POSTGRES_PASSWORD: password
     volumes:
     - db:/var/lib/postgresql/data
     restart: always
+  # do not change the app service name as it is hard-wired
+  # into renderknecht; this way, we don't have to implement
+  # any service discovery
   app:
     image: quay.io/hedgedoc/hedgedoc:1.10.0
     environment:
-    - CMD_DB_URL=postgres://hedgedoc:password@database:5432/hedgedoc
-    - CMD_DOMAIN=localhost:8080
-    - CMD_URL_ADDPORT=false
-    - CMD_PROTOCOL_USESSL=false
+      !!merge <<: *common-env
+      CMD_PORT: 3000  # do not change; renderknecht has this port hard-coded
+      CMD_DB_URL: postgres://hedgedoc:password@database:5432/hedgedoc
+      CMD_URL_ADDPORT: false
+      CMD_PROTOCOL_USESSL: false
     volumes:
     - uploads:/hedgedoc/public/uploads
     restart: always
     depends_on:
     - database
+  # do not change the plantuml service name as it is hard-wired
+  # into renderknecht; this way, we don't have to implement
+  # any service discovery
   plantuml:
     image: plantuml/plantuml-server:jetty-v1.2024.7
     restart: always
@@ -34,9 +43,9 @@ services:
       context: .
       dockerfile: Dockerfile.renderknecht
     environment:
-    - CMD_DOMAIN=localhost  # where to pull images and diagrams from
-    - PREAMBLE_YAML=preamble.yaml
-    - AUTHORS_YAML=authors.yaml
+      !!merge <<: *common-env
+      PREAMBLE_YAML: preamble.yaml
+      AUTHORS_YAML: authors.yaml
 
 volumes:
   db:
