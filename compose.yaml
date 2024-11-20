@@ -1,12 +1,12 @@
 x-common-env: &common-env
-  CMD_DOMAIN: localhost:${CMD_PORT}
+  CMD_DOMAIN: localhost:${CMD_PORT:-8080}
 services:
   reverse-proxy:
     image: caddy:2.9-alpine
     volumes:
     - ./Caddyfile:/etc/caddy/Caddyfile
     ports:
-    - "${CMD_PORT}:80"
+    - "${CMD_PORT:-8080}:80"
   database:
     image: postgres:17-alpine
     environment:
