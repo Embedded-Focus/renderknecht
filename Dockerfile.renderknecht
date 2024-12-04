@@ -35,7 +35,12 @@ ENTRYPOINT ["/tini", "--"]
 
 # CSL styles can be found in this repo: https://github.com/citation-style-language/styles
 COPY ./pandoc-latex-template/eisvogel.tex ${TEMPLATES_DIR}/eisvogel.latex
-COPY ./src/renderknecht ./src/logo.pdf ./src/preamble.yaml ./src/authors.yaml ./src/ieee.csl ${PANDOC_DIR}
+COPY ./src/renderknecht \
+    ./src/logo.pdf \
+    ./src/preamble.yaml \
+    ./src/authors.yaml \
+    ./src/ieee.csl \
+    ${PANDOC_DIR}
 
 WORKDIR ${PANDOC_DIR}
 
