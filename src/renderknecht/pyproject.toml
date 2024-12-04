@@ -1,20 +1,11 @@
-[build-system]
-# Minimum requirements for the build system to execute.
-requires = [
-    "setuptools>=47.2.0",
-    "wheel",
-    "fastentrypoints; python_version=='3.12'",
-]
-build-backend = "setuptools.build_meta"
-
 [project]
-name = "PDF renderknecht"
+name = "renderknecht"
 authors = [
   { name="Rainer Poisel", email="rainer@honeytreelabs.com" },
 ]
+version = "0.1.0"
 description = "PDF renderer based on pandoc, the eisvogel template and other components"
 readme = "README.md"
-version = "0.0.1"
 requires-python = ">=3.12"
 classifiers = [
     'Development Status :: 4 - Beta',
@@ -30,13 +21,15 @@ classifiers = [
     'Operating System :: OS Independent',
 ]
 dependencies = [
-    "pytest>=8.0.0",
-    "httpx>=2.27.0",
+    "flask>=3.1.0",
+    "graphviz>=0.20.3",
+    "gunicorn>=23.0.0",
+    "httpx>=0.28.0",
+    "pytest>=8.3.4",
+    "pyyaml>=6.0.2",
 ]
-
 [project.urls]
 "Homepage" = "https://honeytreelabs.com"
-
 [tool.pytest.ini_options]
 pythonpath = [
     "."
