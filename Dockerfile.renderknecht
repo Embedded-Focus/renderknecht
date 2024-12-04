@@ -15,8 +15,8 @@ RUN apt install -yy \
         texlive-fonts-extra \
         texlive-latex-base
 
-RUN wget https://github.com/jgm/pandoc/releases/download/3.2/pandoc-3.2-1-amd64.deb -O /tmp/pandoc-3.2-1-amd64.deb \
-    && dpkg --install /tmp/pandoc-3.2-1-amd64.deb
+RUN wget https://github.com/jgm/pandoc/releases/download/3.5/pandoc-3.5-1-amd64.deb -O /tmp/pandoc-amd64.deb \
+    && dpkg --install /tmp/pandoc-amd64.deb
 
 ARG PANDOC_DIR=/.pandoc
 ARG TEMPLATES_DIR=${PANDOC_DIR}/templates
