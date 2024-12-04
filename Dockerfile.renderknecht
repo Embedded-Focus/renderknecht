@@ -1,4 +1,4 @@
-FROM python:3.12-bookworm
+FROM ghcr.io/astral-sh/uv:python3.13-bookworm
 
 LABEL org.opencontainers.image.authors="Rainer Poisel <rainer@honeytreelabs.com>"
 
@@ -17,13 +17,6 @@ RUN apt install -yy \
 
 RUN wget https://github.com/jgm/pandoc/releases/download/3.2/pandoc-3.2-1-amd64.deb -O /tmp/pandoc-3.2-1-amd64.deb \
     && dpkg --install /tmp/pandoc-3.2-1-amd64.deb
-
-RUN pip install \
-    Flask \
-    PyYAML \
-    graphviz \
-    gunicorn \
-    httpx
 
 ARG PANDOC_DIR=/.pandoc
 ARG TEMPLATES_DIR=${PANDOC_DIR}/templates
@@ -46,4 +39,4 @@ COPY ./src/renderknecht ./src/logo.pdf ./src/preamble.yaml ./src/authors.yaml ./
 
 WORKDIR ${PANDOC_DIR}
 
-CMD ["flask", "--app", "renderknecht", "run", "--host=0.0.0.0"]
+CMD ["uv", "run", "flask", "--app", "web", "run", "--host=0.0.0.0"]
