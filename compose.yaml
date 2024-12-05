@@ -39,6 +39,7 @@ services:
     image: plantuml/plantuml-server:jetty-v1.2024.7
     restart: always
   renderknecht:
+    image: renderknecht:latest
     build:
       context: .
       dockerfile: Dockerfile.renderknecht
