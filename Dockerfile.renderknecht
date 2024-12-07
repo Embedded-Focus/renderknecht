@@ -45,6 +45,7 @@ COPY ./src/renderknecht \
 
 WORKDIR ${PANDOC_DIR}
 
-RUN uv python install 3.13
+RUN uv python install 3.13 \
+    && uv sync
 
 CMD ["uv", "run", "flask", "--app", "web", "run", "--host=0.0.0.0"]
