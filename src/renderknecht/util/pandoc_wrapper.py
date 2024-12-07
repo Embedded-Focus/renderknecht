@@ -7,7 +7,7 @@ def determine_pandoc_arguments(metadata: YAMLMetadata) -> list[str]:
         "--verbose",
         "-s",
         "-f",
-        "markdown+implicit_figures+table_captions+grid_tables+citations",
+        "markdown+citations+grid_tables+implicit_figures+table_captions+tex_math_dollars",
         "-t",
         "pdf",
         "--template",

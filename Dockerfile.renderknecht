@@ -13,7 +13,8 @@ RUN apt install -yy \
         graphviz \
         librsvg2-bin \
         texlive-fonts-extra \
-        texlive-latex-base
+        texlive-latex-base \
+        texlive-science
 
 RUN wget https://github.com/jgm/pandoc/releases/download/3.5/pandoc-3.5-1-amd64.deb -O /tmp/pandoc-amd64.deb \
     && dpkg --install /tmp/pandoc-amd64.deb
