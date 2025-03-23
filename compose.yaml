@@ -20,7 +20,7 @@ services:
   # into renderknecht; this way, we don't have to implement
   # any service discovery
   app:
-    image: quay.io/hedgedoc/hedgedoc:1.10.0
+    image: quay.io/hedgedoc/hedgedoc:1.10.2
     environment:
       !!merge <<: *common-env
       CMD_PORT: 3000  # do not change; renderknecht has this port hard-coded
@@ -36,7 +36,7 @@ services:
   # into renderknecht; this way, we don't have to implement
   # any service discovery
   plantuml:
-    image: plantuml/plantuml-server:jetty-v1.2024.7
+    image: plantuml/plantuml-server:jetty-v1.2025.0
     restart: always
   renderknecht:
     image: renderknecht:latest
