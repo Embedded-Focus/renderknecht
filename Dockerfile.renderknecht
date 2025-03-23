@@ -10,13 +10,14 @@ RUN echo "deb http://deb.debian.org/debian unstable main" >> /etc/apt/sources.li
 RUN apt update
 RUN apt install -yy \
         bind9-dnsutils \
+        curl \
         graphviz \
         librsvg2-bin \
         texlive-fonts-extra \
         texlive-latex-base \
         texlive-science
 
-RUN wget https://github.com/jgm/pandoc/releases/download/3.5/pandoc-3.5-1-amd64.deb -O /tmp/pandoc-amd64.deb \
+RUN wget https://github.com/jgm/pandoc/releases/download/3.6.4/pandoc-3.6.4-1-amd64.deb -O /tmp/pandoc-amd64.deb \
     && dpkg --install /tmp/pandoc-amd64.deb
 
 ARG PANDOC_DIR=/.pandoc
@@ -35,7 +36,8 @@ ENTRYPOINT ["/tini", "--"]
 # That's all good enough for what we want to achieve ...
 
 # CSL styles can be found in this repo: https://github.com/citation-style-language/styles
-COPY ./pandoc-latex-template/eisvogel.tex ${TEMPLATES_DIR}/eisvogel.latex
+RUN curl -L https://github.com/Wandmalfarbe/pandoc-latex-template/releases/download/v3.1.0/Eisvogel-3.1.0.tar.gz \
+    | tar xz --strip-components=1 -C ${TEMPLATES_DIR} Eisvogel-3.1.0/eisvogel.latex
 COPY ./src/renderknecht \
     ./src/logo.pdf \
     ./src/preamble.yaml \
