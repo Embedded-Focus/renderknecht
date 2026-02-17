@@ -1,4 +1,4 @@
-FROM ghcr.io/astral-sh/uv:python3.13-bookworm
+FROM ghcr.io/astral-sh/uv:python3.13-trixie
 
 LABEL org.opencontainers.image.authors="Rainer Poisel <rainer@honeytreelabs.com>"
 
