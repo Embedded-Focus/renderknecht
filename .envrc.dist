@@ -1,0 +1,4 @@
+dotenv .env
+use flake "path:."
+uv sync
+. .venv/bin/activate

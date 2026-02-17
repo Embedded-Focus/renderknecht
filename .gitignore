@@ -1,4 +1,5 @@
 .python-version
 .env
+.envrc
 __pycache__/
 
