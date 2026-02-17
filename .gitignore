@@ -2,4 +2,6 @@
 .env
 .envrc
 __pycache__/
-
+.direnv/
+.claude/
+.agent-shell/
