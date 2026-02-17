@@ -112,6 +112,7 @@ quote-style = "double"
 dev = [
     "pytest==9.0.2",
     "ruff>=0.15.1",
+    "ty>=0.0.17",
 ]
 
 [tool.ruff.lint.flake8-pytest-style]
