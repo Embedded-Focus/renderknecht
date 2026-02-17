@@ -2,9 +2,8 @@ import copy
 import re
 
 import yaml
-from yaml import SafeLoader
-
 from util import yaml as util_yaml
+from yaml import SafeLoader
 
 CSLReferences = list | None
 References = dict

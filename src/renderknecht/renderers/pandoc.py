@@ -14,10 +14,9 @@ from zlib import compress
 import httpx
 import yaml
 from graphviz import Source
-from yaml import SafeLoader
-
 from util import yaml as util_yaml
 from util.pandoc_wrapper import determine_pandoc_arguments
+from yaml import SafeLoader
 
 
 def augment_authors(yaml_metadata: dict, authors: dict) -> dict:

@@ -4,7 +4,6 @@ import subprocess
 import flask
 import httpx
 from flask import Flask
-
 from renderers import hugo, pandoc
 from util import yaml
 

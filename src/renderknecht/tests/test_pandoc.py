@@ -3,7 +3,6 @@ from collections.abc import Iterator
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from renderers import pandoc
 from util import yaml
 
