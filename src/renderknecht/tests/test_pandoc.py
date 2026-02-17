@@ -238,9 +238,9 @@ header-includes:
   ```
 titlepage: true
 titlepage-color: ffffff
-titlepage-logo: honeytreelabs_WIP.pdf
-titlepage-rule-color: e8ab23
-titlepage-text-color: 395c6b
+titlepage-logo: embedded-focus.pdf
+titlepage-rule-color: f25c05
+titlepage-text-color: '010326'
 ---
 
 # Hello, World!
@@ -258,9 +258,9 @@ titlepage-text-color: 395c6b
         ],
         "titlepage": True,
         "titlepage-color": "ffffff",
-        "titlepage-logo": "honeytreelabs_WIP.pdf",
-        "titlepage-rule-color": "e8ab23",
-        "titlepage-text-color": "395c6b",
+        "titlepage-logo": "embedded-focus.pdf",
+        "titlepage-rule-color": "f25c05",
+        "titlepage-text-color": "010326",
     }
     assert not tmp_files
 
@@ -297,9 +297,9 @@ header-includes:
   ```
 titlepage: false
 titlepage-color: ffffff
-titlepage-logo: honeytreelabs_WIP.pdf
-titlepage-rule-color: e8ab23
-titlepage-text-color: 395c6b
+titlepage-logo: embedded-focus.pdf
+titlepage-rule-color: f25c05
+titlepage-text-color: '010326'
 ---
 
 # Hello, World!
@@ -317,9 +317,9 @@ titlepage-text-color: 395c6b
         ],
         "titlepage": False,
         "titlepage-color": "ffffff",
-        "titlepage-logo": "honeytreelabs_WIP.pdf",
-        "titlepage-rule-color": "e8ab23",
-        "titlepage-text-color": "395c6b",
+        "titlepage-logo": "embedded-focus.pdf",
+        "titlepage-rule-color": "f25c05",
+        "titlepage-text-color": "010326",
     }
     assert not tmp_files
 

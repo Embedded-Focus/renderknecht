@@ -42,6 +42,8 @@ COPY ./pyproject.toml ./uv.lock ${PANDOC_DIR}/
 COPY ./src/renderknecht/ \
     ${PANDOC_DIR}/
 COPY ./src/logo.pdf \
+    ./src/honeytreelabs_WIP.pdf \
+    ./src/embedded-focus.pdf \
     ./src/preamble.yaml \
     ./src/authors.yaml \
     ./src/ieee.csl \
