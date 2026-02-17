@@ -208,7 +208,7 @@ header-includes:
 
 
 def test_extract_yaml_metadata_with_preamble() -> None:
-    os.environ["PREAMBLE_YAML"] = "../preamble.yaml"
+    os.environ["PREAMBLE_YAML"] = "src/preamble.yaml"
 
     tmp_files: pandoc.TemporaryFiles = []
     markdown, metadata = pandoc.prepare_markdown(
@@ -266,7 +266,7 @@ titlepage-text-color: 395c6b
 
 
 def test_extract_yaml_metadata_with_preamble_has_less_priority() -> None:
-    os.environ["PREAMBLE_YAML"] = "../preamble.yaml"
+    os.environ["PREAMBLE_YAML"] = "src/preamble.yaml"
 
     tmp_files: pandoc.TemporaryFiles = []
     markdown, metadata = pandoc.prepare_markdown(

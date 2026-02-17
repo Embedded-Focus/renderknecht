@@ -32,10 +32,10 @@ dependencies = [
 "Homepage" = "https://honeytreelabs.com"
 [tool.pytest.ini_options]
 pythonpath = [
-    "."
+    "src/renderknecht",
 ]
 testpaths = [
-    "tests",
+    "src/renderknecht/tests",
 ]
 python_files = "test_*.py"
 python_functions = "test_*"
@@ -94,9 +94,6 @@ ignore = [
     # too-many-arguments (PLR0913)
     # https://docs.astral.sh/ruff/rules/too-many-arguments/
     "PLR0913",
-    # missing-type-self (ANN101)# - DEPRECATED, hence ignored
-    # https://docs.astral.sh/ruff/rules/missing-type-self/
-    "ANN101",
     # assert (S101)#
     # https://docs.astral.sh/ruff/rules/assert/
     # Reason: pytest uses assertions
