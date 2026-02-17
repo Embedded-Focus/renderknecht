@@ -52,4 +52,6 @@ WORKDIR ${PANDOC_DIR}
 RUN uv python install 3.13 \
     && uv sync
 
+ENV PATH=${PANDOC_DIR}/.venv/bin:${PATH}
+
 CMD ["uv", "run", "flask", "--app", "web", "run", "--host=0.0.0.0"]

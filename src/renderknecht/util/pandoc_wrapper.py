@@ -16,6 +16,8 @@ def determine_pandoc_arguments(metadata: YAMLMetadata) -> list[str]:
         "--citeproc",
         "--csl",
         "ieee.csl",
+        "--filter",
+        "pandoc-latex-environment",
     ]
 
     if not metadata:
