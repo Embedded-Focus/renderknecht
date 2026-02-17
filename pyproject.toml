@@ -26,8 +26,8 @@ dependencies = [
     "gunicorn>=23.0.0",
     "httpx>=0.28.0",
     "pandoc-latex-environment>=1.2.1.0",
-    "pytest>=8.3.4",
     "pyyaml>=6.0.2",
+    "h11==0.16.0",
 ]
 [project.urls]
 "Homepage" = "https://honeytreelabs.com"
@@ -107,6 +107,11 @@ ignore = [
 
 [tool.ruff.format]
 quote-style = "double"
+
+[dependency-groups]
+dev = [
+    "pytest==9.0.2",
+]
 
 [tool.ruff.lint.flake8-pytest-style]
 # Ignore missing '()' at marker without args.
