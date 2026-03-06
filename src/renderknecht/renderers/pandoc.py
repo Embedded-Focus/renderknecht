@@ -30,7 +30,8 @@ def _resource_path(name: str) -> Path:
 def _resolve_resource(specific_env_var: str, filename: str) -> Path | None:
     """Return the path to a resource file, or None to use the bundled default.
 
-    Priority: specific env var > RESOURCES_DIR/<filename> > bundled default.
+    Priority: specific env var > RESOURCES_DIR/<filename>
+              > XDG_CONFIG_HOME/renderknecht/<filename> > bundled default.
     """
     if specific_env_var in os.environ:
         return Path(os.environ[specific_env_var])
@@ -38,6 +39,10 @@ def _resolve_resource(specific_env_var: str, filename: str) -> Path | None:
         candidate = Path(os.environ["RESOURCES_DIR"]) / filename
         if candidate.exists():
             return candidate
+    xdg_config = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
+    candidate = xdg_config / "renderknecht" / filename
+    if candidate.exists():
+        return candidate
     return None
 
 

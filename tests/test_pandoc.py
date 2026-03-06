@@ -235,8 +235,15 @@ author:
             "Third Name",
         ],
         "header-includes": [
-            "```{=latex}\n\\usepackage{pdflscape}\n```\n",
+            "```{=latex}\n\\usepackage{pdflscape}\n\\newcommand{\\blandscape}{\\begin{landscape}}\n\\newcommand{\\elandscape}{\\end{landscape}}\n```\n",
+            "```{=latex}\n\\usepackage{tcolorbox}\n\\newtcolorbox{info-box}{colback=cyan!5!white,arc=0pt,outer arc=0pt,colframe=cyan!60!black}\n\\newtcolorbox{warning-box}{colback=orange!5!white,arc=0pt,outer arc=0pt,colframe=orange!80!black}\n\\newtcolorbox{error-box}{colback=red!5!white,arc=0pt,outer arc=0pt,colframe=red!75!black}\n```\n",
         ],
+        "pandoc-latex-environment": {
+            "tcolorbox": ["box"],
+            "info-box": ["info"],
+            "warning-box": ["warning"],
+            "error-box": ["error"],
+        },
         "titlepage": True,
         "titlepage-color": "ffffff",
         "titlepage-rule-color": "f25c05",
@@ -272,8 +279,15 @@ author:
             "Third Name",
         ],
         "header-includes": [
-            "```{=latex}\n\\usepackage{pdflscape}\n```\n",
+            "```{=latex}\n\\usepackage{pdflscape}\n\\newcommand{\\blandscape}{\\begin{landscape}}\n\\newcommand{\\elandscape}{\\end{landscape}}\n```\n",
+            "```{=latex}\n\\usepackage{tcolorbox}\n\\newtcolorbox{info-box}{colback=cyan!5!white,arc=0pt,outer arc=0pt,colframe=cyan!60!black}\n\\newtcolorbox{warning-box}{colback=orange!5!white,arc=0pt,outer arc=0pt,colframe=orange!80!black}\n\\newtcolorbox{error-box}{colback=red!5!white,arc=0pt,outer arc=0pt,colframe=red!75!black}\n```\n",
         ],
+        "pandoc-latex-environment": {
+            "tcolorbox": ["box"],
+            "info-box": ["info"],
+            "warning-box": ["warning"],
+            "error-box": ["error"],
+        },
         "titlepage": False,
         "titlepage-color": "ffffff",
         "titlepage-rule-color": "f25c05",

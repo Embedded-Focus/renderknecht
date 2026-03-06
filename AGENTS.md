@@ -29,6 +29,24 @@ Always prefix any Python-related command with `uv run`, e.g.:
 - Collect tests: `uv run pytest --co`
 - Lint/format: `uv run ruff check`, `uv run ruff format --check`, `uv run ty check`
 
+## Local Installation
+
+Install renderknecht as a user tool (requires pandoc, texlive, and graphviz on PATH):
+
+```sh
+uv tool install /path/to/renderknecht   # from local checkout
+```
+
+This adds `renderknecht` to `~/.local/bin`. Usage:
+
+```sh
+renderknecht < input.md > output.pdf
+```
+
+Per-user resources are read from `$XDG_CONFIG_HOME/renderknecht/` (default: `~/.config/renderknecht/`).
+Place any of `preamble.yaml`, `authors.yaml`, or logo PDFs there; they take priority over the
+bundled defaults.
+
 ## Container Usage
 
 Two operating modes, selected automatically by `entrypoint.sh`:
@@ -36,9 +54,10 @@ Two operating modes, selected automatically by `entrypoint.sh`:
 - **Render mode** (stdin is a pipe/file): `podman run --rm -i renderknecht:latest < input.md > output.pdf`
 - **Serve mode** (no stdin / TTY): started by `compose.yaml`; runs the Flask web UI
 
-Resource overrides (optional):
+Resource overrides (optional, all modes):
 
-- `RESOURCES_DIR=/path/to/dir` — directory containing `preamble.yaml`, `authors.yaml`, and/or logo PDFs; any file present there takes priority over the bundled defaults.
+- `~/.config/renderknecht/<file>` — per-user XDG config dir (local tool installs).
+- `RESOURCES_DIR=/path/to/dir` — directory containing `preamble.yaml`, `authors.yaml`, and/or logo PDFs; takes priority over XDG and bundled defaults.
 - `PREAMBLE_YAML=/path/to/preamble.yaml` — override just the preamble (highest priority).
 - `AUTHORS_YAML=/path/to/authors.yaml` — override just the authors map (highest priority).
 
