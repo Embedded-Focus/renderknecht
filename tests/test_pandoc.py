@@ -1,5 +1,6 @@
 import os
 from collections.abc import Iterator
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -294,6 +295,27 @@ author:
         "titlepage-text-color": "010326",
     }
     assert not tmp_files
+
+
+def test_titlepage_logo_resolved_from_resources_dir(tmp_path: Path) -> None:
+    """Logo referenced in document front matter is resolved via RESOURCES_DIR."""
+    logo_file = tmp_path / "mycompany-logo.pdf"
+    logo_file.write_bytes(b"%PDF")
+    os.environ["RESOURCES_DIR"] = str(tmp_path)
+    os.environ["PREAMBLE_YAML"] = "/dev/null"
+
+    tmp_files: pandoc.TemporaryFiles = []
+    _, metadata = pandoc.prepare_markdown(
+        """---
+titlepage-logo: mycompany-logo.pdf
+---
+# Hello
+""",
+        tmp_files,
+    )
+
+    assert metadata is not None
+    assert metadata["titlepage-logo"] == str(logo_file)
 
 
 def test_extract_yaml_metadata_toc() -> None:

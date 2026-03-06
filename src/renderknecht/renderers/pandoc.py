@@ -152,6 +152,13 @@ def augment_yaml_preamble(hedgedoc_markdown: str) -> tuple[str, util_yaml.YAMLMe
             **augment_authors(augmented_metadata, authors),
         }
 
+        if augmented_metadata and "titlepage-logo" in augmented_metadata:
+            logo = augmented_metadata["titlepage-logo"]
+            if not Path(logo).is_absolute() and not Path(logo).exists():
+                resolved = _resolve_resource("", logo)
+                if resolved:
+                    augmented_metadata["titlepage-logo"] = str(resolved)
+
         return f"---\n{yaml.dump(augmented_metadata, default_flow_style=False, indent=2)}---"
 
     return re.sub(
