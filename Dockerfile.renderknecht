@@ -29,7 +29,6 @@ RUN mkdir -p ${TEMPLATES_DIR} \
 ARG TINI_VERSION=v0.19.0
 ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini /tini
 RUN chmod +x /tini
-ENTRYPOINT ["/tini", "--"]
 
 # We just copy the whole application including tests into the pandoc directory.
 # I don't care that this is not perfect. We also use the Flask built-in webserver.
@@ -48,4 +47,6 @@ RUN uv python install 3.13 \
 
 ENV PATH=${PANDOC_DIR}/.venv/bin:${PATH}
 
-CMD ["uv", "run", "flask", "--app", "web", "run", "--host=0.0.0.0"]
+COPY entrypoint.sh /usr/local/bin/entrypoint
+RUN chmod +x /usr/local/bin/entrypoint
+ENTRYPOINT ["/tini", "--", "/usr/local/bin/entrypoint"]
