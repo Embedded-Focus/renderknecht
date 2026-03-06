@@ -1,3 +1,4 @@
+import datetime
 import os
 from collections.abc import Iterator
 from pathlib import Path
@@ -229,7 +230,7 @@ author:
     assert metadata is not None
     assert metadata["titlepage-logo"].endswith("logo.pdf")
 
-    assert {k: v for k, v in metadata.items() if k != "titlepage-logo"} == {
+    assert {k: v for k, v in metadata.items() if k not in ("titlepage-logo", "date")} == {
         "author": [
             "First Name",
             "Second Name",
@@ -250,6 +251,7 @@ author:
         "titlepage-rule-color": "f25c05",
         "titlepage-text-color": "010326",
     }
+    assert metadata["date"] == datetime.date.today().isoformat()
     assert not tmp_files
 
 
@@ -273,7 +275,7 @@ author:
     assert metadata is not None
     assert metadata["titlepage-logo"].endswith("logo.pdf")
 
-    assert {k: v for k, v in metadata.items() if k != "titlepage-logo"} == {
+    assert {k: v for k, v in metadata.items() if k not in ("titlepage-logo", "date")} == {
         "author": [
             "First Name",
             "Second Name",
@@ -294,7 +296,53 @@ author:
         "titlepage-rule-color": "f25c05",
         "titlepage-text-color": "010326",
     }
+    assert metadata["date"] == datetime.date.today().isoformat()
     assert not tmp_files
+
+
+def test_date_today_sentinel_replaced() -> None:
+    """'today' in the date field is replaced with the current ISO date."""
+    os.environ["PREAMBLE_YAML"] = "/dev/null"
+    tmp_files: pandoc.TemporaryFiles = []
+    _, metadata = pandoc.prepare_markdown(
+        """---
+date: today
+---
+# Hello
+""",
+        tmp_files,
+    )
+    assert metadata is not None
+    assert metadata["date"] == datetime.date.today().isoformat()
+
+
+def test_date_today_sentinel_case_insensitive() -> None:
+    """'TODAY' and 'Today' are also replaced."""
+    os.environ["PREAMBLE_YAML"] = "/dev/null"
+    for value in ("TODAY", "Today", "toDay"):
+        tmp_files: pandoc.TemporaryFiles = []
+        _, metadata = pandoc.prepare_markdown(
+            f"---\ndate: {value}\n---\n",
+            tmp_files,
+        )
+        assert metadata is not None
+        assert metadata["date"] == datetime.date.today().isoformat(), f"failed for date: {value}"
+
+
+def test_date_literal_not_replaced() -> None:
+    """A literal date string is passed through unchanged."""
+    os.environ["PREAMBLE_YAML"] = "/dev/null"
+    tmp_files: pandoc.TemporaryFiles = []
+    _, metadata = pandoc.prepare_markdown(
+        """---
+date: "2025-01-15"
+---
+# Hello
+""",
+        tmp_files,
+    )
+    assert metadata is not None
+    assert metadata["date"] == "2025-01-15"
 
 
 def test_titlepage_logo_resolved_from_resources_dir(tmp_path: Path) -> None:

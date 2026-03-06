@@ -1,5 +1,6 @@
 import base64
 import copy
+import datetime
 import importlib.resources
 import logging
 import os
@@ -158,6 +159,9 @@ def augment_yaml_preamble(hedgedoc_markdown: str) -> tuple[str, util_yaml.YAMLMe
                 resolved = _resolve_resource("", logo)
                 if resolved:
                     augmented_metadata["titlepage-logo"] = str(resolved)
+
+        if isinstance(augmented_metadata.get("date"), str) and augmented_metadata["date"].lower() == "today":
+            augmented_metadata["date"] = datetime.date.today().isoformat()
 
         return f"---\n{yaml.dump(augmented_metadata, default_flow_style=False, indent=2)}---"
 
