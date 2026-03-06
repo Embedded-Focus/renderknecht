@@ -27,6 +27,20 @@ def _resource_path(name: str) -> Path:
     return Path(str(_RESOURCES / name))
 
 
+def _resolve_resource(specific_env_var: str, filename: str) -> Path | None:
+    """Return the path to a resource file, or None to use the bundled default.
+
+    Priority: specific env var > RESOURCES_DIR/<filename> > bundled default.
+    """
+    if specific_env_var in os.environ:
+        return Path(os.environ[specific_env_var])
+    if "RESOURCES_DIR" in os.environ:
+        candidate = Path(os.environ["RESOURCES_DIR"]) / filename
+        if candidate.exists():
+            return candidate
+    return None
+
+
 def augment_authors(yaml_metadata: dict, authors: dict) -> dict:
     if yaml_metadata and "author" in yaml_metadata:
         result = copy.copy(yaml_metadata)
@@ -99,9 +113,14 @@ def augment_yaml_preamble(hedgedoc_markdown: str) -> tuple[str, util_yaml.YAMLMe
 
     def replace(match: re.Match) -> str:
         nonlocal augmented_metadata
-        if "PREAMBLE_YAML" in os.environ:
-            with Path(os.environ["PREAMBLE_YAML"]).open(mode="r") as fh:
+        preamble_path = _resolve_resource("PREAMBLE_YAML", "preamble.yaml")
+        if preamble_path:
+            with preamble_path.open(mode="r") as fh:
                 preamble_data: util_yaml.YAMLMetadata = yaml.load(fh, Loader=SafeLoader)
+            if preamble_data and "titlepage-logo" in preamble_data:
+                logo = preamble_data["titlepage-logo"]
+                if not Path(logo).is_absolute():
+                    preamble_data["titlepage-logo"] = str(preamble_path.parent / logo)
         else:
             preamble_data = yaml.safe_load((_RESOURCES / "preamble.yaml").read_text())
             if preamble_data and "titlepage-logo" in preamble_data:
@@ -109,8 +128,9 @@ def augment_yaml_preamble(hedgedoc_markdown: str) -> tuple[str, util_yaml.YAMLMe
         if preamble_data is not None:
             augmented_metadata = preamble_data
 
-        if "AUTHORS_YAML" in os.environ:
-            with Path(os.environ["AUTHORS_YAML"]).open(mode="r") as fh:
+        authors_path = _resolve_resource("AUTHORS_YAML", "authors.yaml")
+        if authors_path:
+            with authors_path.open(mode="r") as fh:
                 authors = yaml.load(fh, Loader=SafeLoader) or {}
         else:
             authors = yaml.safe_load((_RESOURCES / "authors.yaml").read_text()) or {}
