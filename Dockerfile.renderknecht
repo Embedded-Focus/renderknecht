@@ -42,8 +42,7 @@ COPY ./src/renderknecht/ ${PANDOC_DIR}/src/renderknecht/
 
 WORKDIR ${PANDOC_DIR}
 
-RUN uv python install 3.13 \
-    && uv sync
+RUN uv sync
 
 ENV PATH=${PANDOC_DIR}/.venv/bin:${PATH}
 
