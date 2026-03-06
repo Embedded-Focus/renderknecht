@@ -1,7 +1,8 @@
 #!/bin/sh
 set -e
-if [ -c /dev/stdin ] || [ -t 0 ]; then
-    exec flask --app web run --host=0.0.0.0
-else
+if [ "${1:-}" = "render" ]; then
+    shift
     exec renderknecht "$@"
+else
+    exec flask --app web run --host=0.0.0.0
 fi

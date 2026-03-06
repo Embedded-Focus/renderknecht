@@ -38,6 +38,7 @@ build-backend = "hatchling.build"
 
 [project.scripts]
 renderknecht = "renderknecht.cli:main"
+renderknecht-wrapper = "renderknecht.podman_wrapper:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/renderknecht"]

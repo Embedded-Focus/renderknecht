@@ -13,6 +13,7 @@ Used (minimum) versions can be found in pyproject.toml.
   - `renderers/`: pandoc-based Markdown → PDF renderer
   - `util/`: utilities — YAML handling (`yaml.py`), pandoc argument builder (`pandoc_wrapper.py`)
   - `resources/`: bundled defaults — `preamble.yaml`, `authors.yaml`, `ieee.csl`, logo PDFs
+- `src/renderknecht/podman_wrapper.py`: podman wrapper; exposes the `renderknecht-wrapper` CLI entry point
 - `tests/`: unit tests
 - `Dockerfile.renderknecht`: container image build
 - `compose.yaml`: full stack (HedgeDoc + PlantUML + renderknecht + Caddy reverse proxy)
@@ -29,37 +30,42 @@ Always prefix any Python-related command with `uv run`, e.g.:
 - Collect tests: `uv run pytest --co`
 - Lint/format: `uv run ruff check`, `uv run ruff format --check`, `uv run ty check`
 
-## Local Installation
+## Wrapper
 
-Install renderknecht as a user tool (requires pandoc, texlive, and graphviz on PATH):
-
-```sh
-uv tool install /path/to/renderknecht   # from local checkout
-```
-
-This adds `renderknecht` to `~/.local/bin`. Usage:
+`renderknecht-wrapper` is the host-side CLI entry point. Install both scripts at once:
 
 ```sh
-renderknecht < input.md > output.pdf
+uv tool install -e .
 ```
 
-Per-user resources are read from `$XDG_CONFIG_HOME/renderknecht/` (default: `~/.config/renderknecht/`).
-Place any of `preamble.yaml`, `authors.yaml`, or logo PDFs there; they take priority over the
-bundled defaults.
+This installs:
+- `renderknecht` — the renderer CLI (runs inside the container, or locally if pandoc is available)
+- `renderknecht-wrapper` — the podman wrapper for host-side use
 
-## Container Usage
+Usage: `renderknecht-wrapper < input.md > output.pdf`
 
-Two operating modes, selected automatically by `entrypoint.sh`:
+The wrapper (`src/renderknecht/podman_wrapper.py`) mounts
+`$XDG_CONFIG_HOME/renderknecht/` (default: `~/.config/renderknecht/`) into the container as
+`RESOURCES_DIR=/resources` when that directory exists, then replaces itself with
+`podman run` via `os.execvp`. Override the image:
 
-- **Render mode** (stdin is a pipe/file): `podman run --rm -i renderknecht:latest < input.md > output.pdf`
-- **Serve mode** (no stdin / TTY): started by `compose.yaml`; runs the Flask web UI
+```sh
+RENDERKNECHT_IMAGE=renderknecht:dev renderknecht-wrapper < input.md > output.pdf
+```
 
-Resource overrides (optional, all modes):
+## Container modes
 
-- `~/.config/renderknecht/<file>` — per-user XDG config dir (local tool installs).
-- `RESOURCES_DIR=/path/to/dir` — directory containing `preamble.yaml`, `authors.yaml`, and/or logo PDFs; takes priority over XDG and bundled defaults.
-- `PREAMBLE_YAML=/path/to/preamble.yaml` — override just the preamble (highest priority).
-- `AUTHORS_YAML=/path/to/authors.yaml` — override just the authors map (highest priority).
+Two operating modes, selected by the first CMD argument passed to `entrypoint.sh`:
+
+- **Render mode** (first arg is `render`): set by the wrapper; runs the renderknecht CLI
+- **Serve mode** (no arg / default): started by `compose.yaml`; runs the Flask web UI
+
+Resource override priority (highest to lowest):
+
+- `PREAMBLE_YAML` / `AUTHORS_YAML` env vars
+- `RESOURCES_DIR/<file>`
+- `$XDG_CONFIG_HOME/renderknecht/<file>` (auto-mounted by wrapper)
+- Bundled defaults in `src/renderknecht/resources/`
 
 ## Testing Patterns
 

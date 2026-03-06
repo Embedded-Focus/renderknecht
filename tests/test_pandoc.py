@@ -226,7 +226,7 @@ author:
 
     assert "titlepage-logo: " in markdown
     assert metadata is not None
-    assert metadata["titlepage-logo"].endswith("embedded-focus.pdf")
+    assert metadata["titlepage-logo"].endswith("logo.pdf")
 
     assert {k: v for k, v in metadata.items() if k != "titlepage-logo"} == {
         "author": [
@@ -270,7 +270,7 @@ author:
 
     assert "titlepage-logo: " in markdown
     assert metadata is not None
-    assert metadata["titlepage-logo"].endswith("embedded-focus.pdf")
+    assert metadata["titlepage-logo"].endswith("logo.pdf")
 
     assert {k: v for k, v in metadata.items() if k != "titlepage-logo"} == {
         "author": [

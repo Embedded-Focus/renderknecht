@@ -3,61 +3,80 @@
 Renders Markdown files into beautiful PDFs via [pandoc](https://pandoc.org/) and the
 [eisvogel](https://github.com/Wandmalfarbe/pandoc-latex-template) LaTeX template.
 
-## Local Installation
+All tooling (pandoc, LaTeX, graphviz) runs inside a container — nothing to install locally
+beyond podman.
 
-Requires pandoc, texlive, and graphviz to be installed on your system.
+## Quick start
 
-```sh
-uv tool install /path/to/renderknecht
-```
-
-This adds `renderknecht` to `~/.local/bin`. Render a document:
-
-```sh
-renderknecht < input.md > output.pdf
-```
-
-### Per-user resources
-
-Place custom resources in `~/.config/renderknecht/` (respects `$XDG_CONFIG_HOME`):
-
-```
-~/.config/renderknecht/
-├── preamble.yaml   # LaTeX/pandoc front-matter defaults
-├── authors.yaml    # display name → full name mapping
-└── logo.pdf        # referenced from titlepage-logo in front matter
-```
-
-Any file present there takes priority over the bundled defaults.
-
-## Container
-
-### Build
+**1. Build the image** (once):
 
 ```sh
 podman build -t renderknecht:latest -f Dockerfile.renderknecht .
 ```
 
-### Run
-
-Two modes are selected automatically based on how stdin is connected:
-
-**Render mode** (stdin is a pipe or file):
+**2. Install** (gets both `renderknecht` and `renderknecht-wrapper`):
 
 ```sh
-renderknecht:latest < input.md > output.pdf
+uv tool install -e .
 ```
 
-**Serve mode** (no stdin / detached): started via `compose.yaml`; runs the HedgeDoc +
-renderknecht web stack.
+**3. Render**:
+
+```sh
+renderknecht-wrapper < input.md > output.pdf
+```
+
+## Per-user resources
+
+Place custom resources in `~/.config/renderknecht/` (respects `$XDG_CONFIG_HOME`).
+The wrapper mounts that directory read-only into the container automatically.
+
+```
+~/.config/renderknecht/
+├── preamble.yaml   # LaTeX/pandoc front-matter defaults
+├── authors.yaml    # short name → display name mapping
+└── logo.pdf        # referenced via titlepage-logo in front matter
+```
+
+Any file present there takes priority over the bundled defaults.
+
+## Markdown front matter
+
+Renderknecht merges the default preamble with the document's YAML front matter.
+The document always wins over preamble defaults. Example:
+
+```yaml
+---
+title: My Document
+author:
+  - rainer
+date: 2026-03-06
+titlepage-logo: logo.pdf
+---
+```
+
+Authors listed in `authors.yaml` are expanded to their full display names automatically.
+
+## Container stack (HedgeDoc + renderknecht)
 
 ```sh
 podman compose up
 ```
 
-### Resource overrides
+Starts HedgeDoc, PlantUML, Caddy, and the renderknecht web service. The renderknecht
+service auto-detects whether it is running in render mode (stdin pipe) or serve mode
+(no stdin / detached).
 
-Pass a directory of resources via `RESOURCES_DIR`, or override individual files:
+## Advanced: resource overrides
+
+The wrapper exposes the same override mechanism as the container directly:
+
+| Mechanism | Description |
+|-----------|-------------|
+| `~/.config/renderknecht/` | Per-user XDG config dir (auto-mounted by wrapper) |
+| `RESOURCES_DIR=/path` | Mount an arbitrary directory; overrides XDG |
+| `PREAMBLE_YAML=/path` | Override just the preamble (highest priority) |
+| `AUTHORS_YAML=/path` | Override just the authors map (highest priority) |
 
 ```sh
 podman run --rm -i \
@@ -66,22 +85,8 @@ podman run --rm -i \
     renderknecht:latest < input.md > output.pdf
 ```
 
-Priority (highest to lowest): `PREAMBLE_YAML` / `AUTHORS_YAML` env vars →
-`RESOURCES_DIR/<file>` → `~/.config/renderknecht/<file>` → bundled defaults.
+Override the image name used by the wrapper:
 
-## Markdown front matter
-
-Renderknecht merges a default preamble with the document's YAML front matter. The document
-always wins over the preamble defaults. Example:
-
-```yaml
----
-title: My Document
-author:
-  - rainer
-date: 2026-03-06
-titlepage-logo: /path/to/logo.pdf
----
+```sh
+RENDERKNECHT_IMAGE=renderknecht:dev renderknecht-wrapper < input.md > output.pdf
 ```
-
-Authors listed in `authors.yaml` are expanded to their full display names automatically.

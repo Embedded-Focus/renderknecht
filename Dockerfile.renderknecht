@@ -37,7 +37,7 @@ RUN chmod +x /tini
 # CSL styles can be found in this repo: https://github.com/citation-style-language/styles
 RUN curl -L https://github.com/Wandmalfarbe/pandoc-latex-template/releases/download/v3.4.0/Eisvogel-3.4.0.tar.gz \
     | tar xz --strip-components=1 -C ${TEMPLATES_DIR} Eisvogel-3.4.0/eisvogel.latex
-COPY ./pyproject.toml ./uv.lock ${PANDOC_DIR}/
+COPY ./pyproject.toml ./uv.lock ./README.md ${PANDOC_DIR}/
 COPY ./src/renderknecht/ ${PANDOC_DIR}/src/renderknecht/
 
 WORKDIR ${PANDOC_DIR}
