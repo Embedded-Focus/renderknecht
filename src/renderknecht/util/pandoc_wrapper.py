@@ -1,4 +1,8 @@
+import importlib.resources
+
 from .yaml import YAMLMetadata
+
+_RESOURCES = importlib.resources.files("renderknecht") / "resources"
 
 
 def determine_pandoc_arguments(metadata: YAMLMetadata) -> list[str]:
@@ -20,7 +24,7 @@ def determine_pandoc_arguments(metadata: YAMLMetadata) -> list[str]:
         "--table-caption-position=below",
         "--citeproc",
         "--csl",
-        "ieee.csl",
+        str(_RESOURCES / "ieee.csl"),
         "--filter",
         "pandoc-latex-environment",
     ]

@@ -41,6 +41,7 @@ renderknecht = "renderknecht.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/renderknecht"]
+artifacts = ["src/renderknecht/resources/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

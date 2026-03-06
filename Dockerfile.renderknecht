@@ -39,15 +39,7 @@ ENTRYPOINT ["/tini", "--"]
 RUN curl -L https://github.com/Wandmalfarbe/pandoc-latex-template/releases/download/v3.4.0/Eisvogel-3.4.0.tar.gz \
     | tar xz --strip-components=1 -C ${TEMPLATES_DIR} Eisvogel-3.4.0/eisvogel.latex
 COPY ./pyproject.toml ./uv.lock ${PANDOC_DIR}/
-COPY ./src/renderknecht/ \
-    ${PANDOC_DIR}/
-COPY ./src/logo.pdf \
-    ./src/honeytreelabs_WIP.pdf \
-    ./src/embedded-focus.pdf \
-    ./src/preamble.yaml \
-    ./src/authors.yaml \
-    ./src/ieee.csl \
-    ${PANDOC_DIR}/
+COPY ./src/renderknecht/ ${PANDOC_DIR}/src/renderknecht/
 
 WORKDIR ${PANDOC_DIR}
 

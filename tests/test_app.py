@@ -1,4 +1,8 @@
+import importlib.resources
+
 from renderknecht.util.pandoc_wrapper import determine_pandoc_arguments
+
+_CSL_PATH = str(importlib.resources.files("renderknecht") / "resources" / "ieee.csl")
 
 
 def test_determine_pandoc_arguments_none() -> None:
@@ -18,7 +22,7 @@ def test_determine_pandoc_arguments_none() -> None:
         "--table-caption-position=below",
         "--citeproc",
         "--csl",
-        "ieee.csl",
+        _CSL_PATH,
         "--filter",
         "pandoc-latex-environment",
     ]
@@ -46,7 +50,7 @@ def test_determine_pandoc_arguments_toc() -> None:
         "--table-caption-position=below",
         "--citeproc",
         "--csl",
-        "ieee.csl",
+        _CSL_PATH,
         "--filter",
         "pandoc-latex-environment",
         "--number-sections",

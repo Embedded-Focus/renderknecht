@@ -1,5 +1,6 @@
 import base64
 import copy
+import importlib.resources
 import logging
 import os
 import re
@@ -18,6 +19,12 @@ from yaml import SafeLoader
 
 from ..util import yaml as util_yaml
 from ..util.pandoc_wrapper import determine_pandoc_arguments
+
+_RESOURCES = importlib.resources.files("renderknecht") / "resources"
+
+
+def _resource_path(name: str) -> Path:
+    return Path(str(_RESOURCES / name))
 
 
 def augment_authors(yaml_metadata: dict, authors: dict) -> dict:
@@ -95,14 +102,18 @@ def augment_yaml_preamble(hedgedoc_markdown: str) -> tuple[str, util_yaml.YAMLMe
         if "PREAMBLE_YAML" in os.environ:
             with Path(os.environ["PREAMBLE_YAML"]).open(mode="r") as fh:
                 preamble_data: util_yaml.YAMLMetadata = yaml.load(fh, Loader=SafeLoader)
-                if preamble_data is not None:
-                    augmented_metadata = preamble_data
+        else:
+            preamble_data = yaml.safe_load((_RESOURCES / "preamble.yaml").read_text())
+            if preamble_data and "titlepage-logo" in preamble_data:
+                preamble_data["titlepage-logo"] = str(_resource_path(preamble_data["titlepage-logo"]))
+        if preamble_data is not None:
+            augmented_metadata = preamble_data
 
         if "AUTHORS_YAML" in os.environ:
             with Path(os.environ["AUTHORS_YAML"]).open(mode="r") as fh:
                 authors = yaml.load(fh, Loader=SafeLoader) or {}
         else:
-            authors = {}
+            authors = yaml.safe_load((_RESOURCES / "authors.yaml").read_text()) or {}
 
         yaml_metadata: util_yaml.YAMLMetadata = yaml.load(
             f"---\n{match.group(1)}",

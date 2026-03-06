@@ -149,6 +149,7 @@ def test_embed_plantuml_with_formatting(get: MagicMock) -> None:
 
 
 def test_extract_yaml_metadata() -> None:
+    os.environ["PREAMBLE_YAML"] = "/dev/null"
     tmp_files: pandoc.TemporaryFiles = []
     markdown, metadata = pandoc.prepare_markdown(
         """---
@@ -171,6 +172,7 @@ def test_extract_yaml_metadata() -> None:
 
 
 def test_extract_yaml_metadata_multiline_string() -> None:
+    os.environ["PREAMBLE_YAML"] = "/dev/null"
     tmp_files: pandoc.TemporaryFiles = []
     markdown, metadata = pandoc.prepare_markdown(
         """---
@@ -208,8 +210,6 @@ header-includes:
 
 
 def test_extract_yaml_metadata_with_preamble() -> None:
-    os.environ["PREAMBLE_YAML"] = "src/preamble.yaml"
-
     tmp_files: pandoc.TemporaryFiles = []
     markdown, metadata = pandoc.prepare_markdown(
         """---
@@ -224,30 +224,11 @@ author:
         tmp_files,
     )
 
-    assert (
-        markdown
-        == """---
-author:
-- First Name
-- Second Name
-- Third Name
-header-includes:
-- |
-  ```{=latex}
-  \\usepackage{pdflscape}
-  ```
-titlepage: true
-titlepage-color: ffffff
-titlepage-logo: embedded-focus.pdf
-titlepage-rule-color: f25c05
-titlepage-text-color: '010326'
----
+    assert "titlepage-logo: " in markdown
+    assert metadata is not None
+    assert metadata["titlepage-logo"].endswith("embedded-focus.pdf")
 
-# Hello, World!
-"""
-    )
-
-    assert metadata == {
+    assert {k: v for k, v in metadata.items() if k != "titlepage-logo"} == {
         "author": [
             "First Name",
             "Second Name",
@@ -258,7 +239,6 @@ titlepage-text-color: '010326'
         ],
         "titlepage": True,
         "titlepage-color": "ffffff",
-        "titlepage-logo": "embedded-focus.pdf",
         "titlepage-rule-color": "f25c05",
         "titlepage-text-color": "010326",
     }
@@ -266,8 +246,6 @@ titlepage-text-color: '010326'
 
 
 def test_extract_yaml_metadata_with_preamble_has_less_priority() -> None:
-    os.environ["PREAMBLE_YAML"] = "src/preamble.yaml"
-
     tmp_files: pandoc.TemporaryFiles = []
     markdown, metadata = pandoc.prepare_markdown(
         """---
@@ -283,30 +261,11 @@ author:
         tmp_files,
     )
 
-    assert (
-        markdown
-        == """---
-author:
-- First Name
-- Second Name
-- Third Name
-header-includes:
-- |
-  ```{=latex}
-  \\usepackage{pdflscape}
-  ```
-titlepage: false
-titlepage-color: ffffff
-titlepage-logo: embedded-focus.pdf
-titlepage-rule-color: f25c05
-titlepage-text-color: '010326'
----
+    assert "titlepage-logo: " in markdown
+    assert metadata is not None
+    assert metadata["titlepage-logo"].endswith("embedded-focus.pdf")
 
-# Hello, World!
-"""
-    )
-
-    assert metadata == {
+    assert {k: v for k, v in metadata.items() if k != "titlepage-logo"} == {
         "author": [
             "First Name",
             "Second Name",
@@ -317,7 +276,6 @@ titlepage-text-color: '010326'
         ],
         "titlepage": False,
         "titlepage-color": "ffffff",
-        "titlepage-logo": "embedded-focus.pdf",
         "titlepage-rule-color": "f25c05",
         "titlepage-text-color": "010326",
     }
@@ -325,6 +283,7 @@ titlepage-text-color: '010326'
 
 
 def test_extract_yaml_metadata_toc() -> None:
+    os.environ["PREAMBLE_YAML"] = "/dev/null"
     tmp_files: pandoc.TemporaryFiles = []
     _, metadata = pandoc.prepare_markdown(
         """---

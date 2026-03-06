@@ -45,8 +45,6 @@ services:
       dockerfile: Dockerfile.renderknecht
     environment:
       !!merge <<: *common-env
-      PREAMBLE_YAML: preamble.yaml
-      AUTHORS_YAML: authors.yaml
 
 volumes:
   db:
