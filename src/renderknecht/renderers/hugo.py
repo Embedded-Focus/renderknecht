@@ -2,8 +2,9 @@ import copy
 import re
 
 import yaml
-from util import yaml as util_yaml
 from yaml import SafeLoader
+
+from ..util import yaml as util_yaml
 
 CSLReferences = list | None
 References = dict
@@ -52,7 +53,7 @@ def transform_markdown_tables(markdown: str) -> str:
     def replace_table_with_caption(match: re.Match) -> str:
         table_content = match.group(2)
         caption = match.group(4).strip()
-        new_table_format = f'{{{{< table title="{caption}" >}}}}\n' f"{table_content}\n" f"{{{{< /table >}}}}"
+        new_table_format = f'{{{{< table title="{caption}" >}}}}\n{table_content}\n{{{{< /table >}}}}'
         return new_table_format
 
     # Regex to match the markdown table with the caption

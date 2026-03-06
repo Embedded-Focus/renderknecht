@@ -1,4 +1,4 @@
-from util.pandoc_wrapper import determine_pandoc_arguments
+from renderknecht.util.pandoc_wrapper import determine_pandoc_arguments
 
 
 def test_determine_pandoc_arguments_none() -> None:

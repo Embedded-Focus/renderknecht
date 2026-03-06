@@ -3,7 +3,7 @@ import logging
 import subprocess
 import sys
 
-from renderers import pandoc
+from .renderers import pandoc
 
 
 def main() -> None:

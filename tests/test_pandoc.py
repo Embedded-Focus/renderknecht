@@ -3,8 +3,9 @@ from collections.abc import Iterator
 from unittest.mock import MagicMock, patch
 
 import pytest
-from renderers import pandoc
-from util import yaml
+
+from renderknecht.renderers import pandoc
+from renderknecht.util import yaml
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -101,7 +102,7 @@ digraph "the holy hand grenade" { rankdir=LR; 1 -> 2 -> 3 -> lob }
     )
 
 
-@patch("renderers.pandoc.httpx.get")
+@patch("renderknecht.renderers.pandoc.httpx.get")
 def test_embed_plantuml(get: MagicMock) -> None:
     tmp_files: pandoc.TemporaryFiles = []
     response = get.return_value
@@ -124,7 +125,7 @@ def test_embed_plantuml(get: MagicMock) -> None:
     )
 
 
-@patch("renderers.pandoc.httpx.get")
+@patch("renderknecht.renderers.pandoc.httpx.get")
 def test_embed_plantuml_with_formatting(get: MagicMock) -> None:
     tmp_files: pandoc.TemporaryFiles = []
     response = get.return_value
@@ -253,7 +254,7 @@ titlepage-text-color: '010326'
             "Third Name",
         ],
         "header-includes": [
-            "```{=latex}\n" "\\usepackage{pdflscape}\n" "```\n",
+            "```{=latex}\n\\usepackage{pdflscape}\n```\n",
         ],
         "titlepage": True,
         "titlepage-color": "ffffff",
@@ -312,7 +313,7 @@ titlepage-text-color: '010326'
             "Third Name",
         ],
         "header-includes": [
-            "```{=latex}\n" "\\usepackage{pdflscape}\n" "```\n",
+            "```{=latex}\n\\usepackage{pdflscape}\n```\n",
         ],
         "titlepage": False,
         "titlepage-color": "ffffff",
