@@ -19,7 +19,7 @@ def determine_pandoc_arguments(metadata: YAMLMetadata) -> list[str]:
         "eisvogel",
         # "-V",
         # "lang=de",
-        "--listings",
+        "--syntax-highlighting=idiomatic",
         "--figure-caption-position=below",
         "--table-caption-position=below",
         "--citeproc",
