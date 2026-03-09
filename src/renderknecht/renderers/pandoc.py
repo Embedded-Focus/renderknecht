@@ -57,7 +57,7 @@ def augment_authors(yaml_metadata: dict, authors: dict) -> dict:
 
 def embed_images(markdown: str) -> str:
     if "CMD_DOMAIN" not in os.environ:
-        logging.warning("CMD_DOMAIN variable has not been defined. Not embedding images.")
+        logging.debug("CMD_DOMAIN variable has not been defined. Not embedding images.")
         return markdown
 
     app_hostname = os.environ["CMD_DOMAIN"]
