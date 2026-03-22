@@ -26,6 +26,15 @@ uv tool install -e .
 renderknecht-wrapper < input.md > output.pdf
 ```
 
+The wrapper always mounts the **current working directory** read-only into the
+container (`/work`), so relative image references in the Markdown resolve
+correctly as long as the images live alongside the input file:
+
+```sh
+cd /my/project
+renderknecht-wrapper < report.md > report.pdf   # images in /my/project/ work
+```
+
 ## Per-user resources
 
 Place custom resources in `~/.config/renderknecht/` (respects `$XDG_CONFIG_HOME`).
@@ -66,6 +75,10 @@ podman compose up
 Starts HedgeDoc, PlantUML, Caddy, and the renderknecht web service. The renderknecht
 service auto-detects whether it is running in render mode (stdin pipe) or serve mode
 (no stdin / detached).
+
+The HedgeDoc uploads volume is shared with the renderknecht service, so images
+uploaded to HedgeDoc are embedded in the PDF automatically — no additional
+configuration required.
 
 ## Advanced: resource overrides
 

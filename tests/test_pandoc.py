@@ -18,13 +18,12 @@ def configure_yaml() -> None:
 @pytest.fixture(scope="function", autouse=True)
 def provide_env() -> Iterator[None]:
     orig_env = os.environ.copy()
-    os.environ["CMD_DOMAIN"] = "hostname"
     yield
     os.environ.clear()
     os.environ.update(orig_env)
 
 
-def test_no_cmd_domain_env_var() -> None:
+def test_embed_images_skips_rewrite_when_not_mounted() -> None:
     tmp_files: pandoc.TemporaryFiles = []
     markdown, metadata = pandoc.prepare_markdown("some text", tmp_files)
     assert markdown == "some text"
@@ -32,10 +31,14 @@ def test_no_cmd_domain_env_var() -> None:
     assert not tmp_files
 
 
-def test_cmd_domain_env_var() -> None:
-    tmp_files: pandoc.TemporaryFiles = []
-    markdown, metadata = pandoc.prepare_markdown("foo https://hostname/whatever", tmp_files)
-    assert markdown == "foo http://app:3000/whatever"
+def test_embed_images_rewrites_uploads_url(tmp_path: Path) -> None:
+    with patch("renderknecht.renderers.pandoc._UPLOADS_DIR", tmp_path):
+        tmp_files: pandoc.TemporaryFiles = []
+        markdown, metadata = pandoc.prepare_markdown(
+            "foo https://hedgedoc.example.com/uploads/image.png bar",
+            tmp_files,
+        )
+    assert markdown == f"foo {tmp_path}/image.png bar"
     assert not metadata
     assert not tmp_files
 

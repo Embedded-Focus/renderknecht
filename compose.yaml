@@ -45,6 +45,8 @@ services:
       dockerfile: Dockerfile.renderknecht
     environment:
       !!merge <<: *common-env
+    volumes:
+    - uploads:/hedgedoc/public/uploads:ro
 
 volumes:
   db:

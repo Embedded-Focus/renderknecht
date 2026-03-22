@@ -55,15 +55,25 @@ def augment_authors(yaml_metadata: dict, authors: dict) -> dict:
     return yaml_metadata
 
 
+_UPLOADS_DIR = Path("/hedgedoc/public/uploads")
+
+
 def embed_images(markdown: str) -> str:
-    if "CMD_DOMAIN" not in os.environ:
-        logging.debug("CMD_DOMAIN variable has not been defined. Not embedding images.")
+    """Rewrite HedgeDoc upload URLs to local filesystem paths.
+
+    Replaces any absolute URL pointing to ``/uploads/`` with a path under
+    :data:`_UPLOADS_DIR`, which must be mounted from the HedgeDoc uploads
+    volume.  When the mount is absent (e.g. in wrapper/render mode), image
+    URLs are left unchanged.
+
+    :param markdown: Markdown text to process.
+    :returns: Markdown with upload URLs replaced by local file paths.
+    """
+    if not _UPLOADS_DIR.is_dir():
+        logging.debug("HedgeDoc uploads not mounted at %s. Not embedding images.", _UPLOADS_DIR)
         return markdown
 
-    app_hostname = os.environ["CMD_DOMAIN"]
-
-    # embed images
-    return markdown.replace(f"https://{app_hostname}", "http://app:3000")
+    return re.sub(r"https?://[^/]+/uploads/", f"{_UPLOADS_DIR}/", markdown)
 
 
 def render_graphviz(markup: str) -> str:

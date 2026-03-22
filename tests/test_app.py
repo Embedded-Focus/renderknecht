@@ -1,5 +1,7 @@
 import importlib.resources
 
+import pytest
+
 from renderknecht.util.pandoc_wrapper import determine_pandoc_arguments
 
 _CSL_PATH = str(importlib.resources.files("renderknecht") / "resources" / "ieee.csl")
@@ -26,6 +28,13 @@ def test_determine_pandoc_arguments_none() -> None:
         "--filter",
         "pandoc-latex-environment",
     ]
+
+
+def test_determine_pandoc_arguments_work_dir(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("WORK_DIR", "/work")
+    args = determine_pandoc_arguments(None)
+    assert "--resource-path" in args
+    assert "/work" in args
 
 
 def test_determine_pandoc_arguments_toc() -> None:

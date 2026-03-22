@@ -9,6 +9,10 @@ Usage: renderknecht-wrapper < input.md > output.pdf
 Render a Markdown document to PDF inside the renderknecht container image.
 Reads from stdin, writes the PDF to stdout.
 
+The current working directory is always mounted read-only into the container,
+so relative image references in the Markdown (e.g. ![](image.png)) resolve
+correctly when the images are in the same directory as the input file.
+
 Environment variables:
   RENDERKNECHT_IMAGE    Image to use (default: renderknecht:latest)
   RENDERKNECHT_RUNTIME  Container runtime: 'podman' or 'docker'
@@ -48,7 +52,9 @@ def main() -> None:
     xdg_config = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
     resources_dir = xdg_config / "renderknecht"
 
+    work_dir = Path.cwd()
     cmd = [runtime, "run", "--rm", "-i"]
+    cmd += ["-v", f"{work_dir.resolve()}:/work:ro", "-e", "WORK_DIR=/work"]
     if resources_dir.is_dir():
         cmd += [
             "-v",

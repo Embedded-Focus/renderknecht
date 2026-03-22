@@ -1,4 +1,5 @@
 import importlib.resources
+import os
 
 from .yaml import YAMLMetadata
 
@@ -28,6 +29,9 @@ def determine_pandoc_arguments(metadata: YAMLMetadata) -> list[str]:
         "--filter",
         "pandoc-latex-environment",
     ]
+
+    if work_dir := os.environ.get("WORK_DIR"):
+        pandoc_args += ["--resource-path", work_dir]
 
     if not metadata:
         return pandoc_args
