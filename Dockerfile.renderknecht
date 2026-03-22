@@ -26,6 +26,9 @@ ARG TEMPLATES_DIR=${PANDOC_DIR}/templates
 RUN mkdir -p ${TEMPLATES_DIR} \
     && ln -s ${PANDOC_DIR} /root/.pandoc
 
+ARG GIT_HASH=unknown
+ENV RENDERKNECHT_GIT_HASH=$GIT_HASH
+
 # We just copy the whole application including tests into the pandoc directory.
 # I don't care that this is not perfect. We also use the Flask built-in webserver.
 # That's all good enough for what we want to achieve ...

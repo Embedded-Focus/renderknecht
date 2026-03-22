@@ -9,6 +9,8 @@ import pytest
 from renderknecht.renderers import pandoc
 from renderknecht.util import yaml
 
+_CREATOR_BLOCK = f"```{{=latex}}\n\\AtBeginDocument{{\\hypersetup{{pdfcreator={{{pandoc._CREATOR}}}}}}}\n```\n"
+
 
 @pytest.fixture(scope="session", autouse=True)
 def configure_yaml() -> None:
@@ -21,6 +23,20 @@ def provide_env() -> Iterator[None]:
     yield
     os.environ.clear()
     os.environ.update(orig_env)
+
+
+def test_augment_yaml_preamble_injects_pdfcreator(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Creator \\hypersetup block is always appended to header-includes."""
+    monkeypatch.setattr(
+        pandoc, "_CREATOR", "renderknecht testhash (https://github.com/Embedded-Focus/renderknecht/)"
+    )
+    os.environ["PREAMBLE_YAML"] = "/dev/null"
+    tmp_files: pandoc.TemporaryFiles = []
+    _, metadata = pandoc.prepare_markdown("---\ntitle: test\n---\n", tmp_files)
+    assert metadata is not None
+    header_includes = metadata.get("header-includes", [])
+    assert any("pdfcreator" in entry for entry in header_includes)
+    assert any("renderknecht testhash" in entry for entry in header_includes)
 
 
 def test_embed_images_skips_rewrite_when_not_mounted() -> None:
@@ -164,15 +180,9 @@ def test_extract_yaml_metadata() -> None:
         tmp_files,
     )
 
-    assert (
-        markdown
-        == """---
-{}
----
-# Hello, World!
-"""
-    )
-    assert not metadata
+    assert "# Hello, World!" in markdown
+    assert "pdfcreator" in markdown
+    assert metadata == {"header-includes": [_CREATOR_BLOCK]}
     assert not tmp_files
 
 
@@ -193,22 +203,13 @@ header-includes:
         tmp_files,
     )
 
-    assert (
-        markdown
-        == """---
-header-includes:
-- |
-  ```{=latex}
-  \\usepackage{pdflscape}
-  \\newcommand{\\blandscape}{\\begin{landscape}}
-  \\newcommand{\\elandscape}{\\end{landscape}}
----
-# Hello, World!
-"""
-    )
+    assert "usepackage{pdflscape}" in markdown
+    assert "pdfcreator" in markdown
+    assert "# Hello, World!" in markdown
     assert metadata == {
         "header-includes": [
-            "```{=latex}\n\\usepackage{pdflscape}\n\\newcommand{\\blandscape}{\\begin{landscape}}\n\\newcommand{\\elandscape}{\\end{landscape}}\n"
+            "```{=latex}\n\\usepackage{pdflscape}\n\\newcommand{\\blandscape}{\\begin{landscape}}\n\\newcommand{\\elandscape}{\\end{landscape}}\n",
+            _CREATOR_BLOCK,
         ]
     }
     assert not tmp_files
@@ -242,6 +243,7 @@ author:
         "header-includes": [
             "```{=latex}\n\\usepackage{pdflscape}\n\\newcommand{\\blandscape}{\\begin{landscape}}\n\\newcommand{\\elandscape}{\\end{landscape}}\n```\n",
             "```{=latex}\n\\usepackage{tcolorbox}\n\\newtcolorbox{info-box}{colback=cyan!5!white,arc=0pt,outer arc=0pt,colframe=cyan!60!black}\n\\newtcolorbox{warning-box}{colback=orange!5!white,arc=0pt,outer arc=0pt,colframe=orange!80!black}\n\\newtcolorbox{error-box}{colback=red!5!white,arc=0pt,outer arc=0pt,colframe=red!75!black}\n```\n",
+            _CREATOR_BLOCK,
         ],
         "pandoc-latex-environment": {
             "tcolorbox": ["box"],
@@ -287,6 +289,7 @@ author:
         "header-includes": [
             "```{=latex}\n\\usepackage{pdflscape}\n\\newcommand{\\blandscape}{\\begin{landscape}}\n\\newcommand{\\elandscape}{\\end{landscape}}\n```\n",
             "```{=latex}\n\\usepackage{tcolorbox}\n\\newtcolorbox{info-box}{colback=cyan!5!white,arc=0pt,outer arc=0pt,colframe=cyan!60!black}\n\\newtcolorbox{warning-box}{colback=orange!5!white,arc=0pt,outer arc=0pt,colframe=orange!80!black}\n\\newtcolorbox{error-box}{colback=red!5!white,arc=0pt,outer arc=0pt,colframe=red!75!black}\n```\n",
+            _CREATOR_BLOCK,
         ],
         "pandoc-latex-environment": {
             "tcolorbox": ["box"],
@@ -387,5 +390,6 @@ toc-own-page: true
     assert metadata == {
         "pandoc-options": ["something", "else", "toc"],
         "toc-own-page": True,
+        "header-includes": [_CREATOR_BLOCK],
     }
     assert not tmp_files

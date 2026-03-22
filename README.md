@@ -11,7 +11,8 @@ beyond podman.
 **1. Build the image** (once):
 
 ```sh
-podman build -t renderknecht:latest -f Dockerfile.renderknecht .
+make build              # uses podman by default
+make build RUNTIME=docker  # use Docker instead
 ```
 
 **2. Install** (gets both `renderknecht` and `renderknecht-wrapper`):

@@ -57,6 +57,11 @@ def augment_authors(yaml_metadata: dict, authors: dict) -> dict:
 
 _UPLOADS_DIR = Path("/hedgedoc/public/uploads")
 
+_CREATOR = (
+    f"renderknecht {os.environ.get('RENDERKNECHT_GIT_HASH', 'unknown')} "
+    "(https://github.com/Embedded-Focus/renderknecht/)"
+)
+
 
 def embed_images(markdown: str) -> str:
     """Rewrite HedgeDoc upload URLs to local filesystem paths.
@@ -172,6 +177,9 @@ def augment_yaml_preamble(hedgedoc_markdown: str) -> tuple[str, util_yaml.YAMLMe
 
         if isinstance(augmented_metadata.get("date"), str) and augmented_metadata["date"].lower() == "today":
             augmented_metadata["date"] = datetime.date.today().isoformat()
+
+        creator_block = f"```{{=latex}}\n\\AtBeginDocument{{\\hypersetup{{pdfcreator={{{_CREATOR}}}}}}}\n```\n"
+        augmented_metadata.setdefault("header-includes", []).append(creator_block)
 
         return f"---\n{yaml.dump(augmented_metadata, default_flow_style=False, indent=2)}---"
 
