@@ -26,10 +26,6 @@ ARG TEMPLATES_DIR=${PANDOC_DIR}/templates
 RUN mkdir -p ${TEMPLATES_DIR} \
     && ln -s ${PANDOC_DIR} /root/.pandoc
 
-ARG TINI_VERSION=v0.19.0
-ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini /tini
-RUN chmod +x /tini
-
 # We just copy the whole application including tests into the pandoc directory.
 # I don't care that this is not perfect. We also use the Flask built-in webserver.
 # That's all good enough for what we want to achieve ...
@@ -48,4 +44,4 @@ ENV PATH=${PANDOC_DIR}/.venv/bin:${PATH}
 
 COPY entrypoint.sh /usr/local/bin/entrypoint
 RUN chmod +x /usr/local/bin/entrypoint
-ENTRYPOINT ["/tini", "--", "/usr/local/bin/entrypoint"]
+ENTRYPOINT ["/usr/local/bin/entrypoint"]
