@@ -9,7 +9,9 @@ import pytest
 from renderknecht.renderers import pandoc
 from renderknecht.util import yaml
 
-_CREATOR_BLOCK = f"```{{=latex}}\n\\AtBeginDocument{{\\hypersetup{{pdfcreator={{{pandoc._CREATOR}}}}}}}\n```\n"
+_CREATOR_BLOCK = (
+    f"```{{=latex}}\n\\AtBeginDocument{{\\hypersetup{{pdfcreator={{{pandoc._CREATOR}}}}}}}\n```\n"
+)
 
 
 @pytest.fixture(scope="session", autouse=True)
