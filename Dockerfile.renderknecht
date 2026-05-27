@@ -20,6 +20,10 @@ RUN apt install -yy \
 RUN wget https://github.com/jgm/pandoc/releases/download/3.9/pandoc-3.9-1-amd64.deb -O /tmp/pandoc-amd64.deb \
     && dpkg --install /tmp/pandoc-amd64.deb
 
+RUN wget https://github.com/lierdakil/pandoc-crossref/releases/download/v0.3.24a/pandoc-crossref-Linux-X64.tar.xz -O /tmp/pandoc-crossref.tar.xz \
+    && tar xf /tmp/pandoc-crossref.tar.xz -C /usr/local/bin pandoc-crossref \
+    && rm /tmp/pandoc-crossref.tar.xz
+
 ARG PANDOC_DIR=/.pandoc
 ARG TEMPLATES_DIR=${PANDOC_DIR}/templates
 

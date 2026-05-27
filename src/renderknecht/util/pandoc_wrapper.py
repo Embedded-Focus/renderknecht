@@ -7,6 +7,8 @@ _RESOURCES = importlib.resources.files("renderknecht") / "resources"
 
 
 def determine_pandoc_arguments(metadata: YAMLMetadata) -> list[str]:
+    pandoc_options: list = (metadata or {}).get("pandoc-options", [])
+
     pandoc_args = [
         "pandoc",
         "--verbose",
@@ -18,11 +20,16 @@ def determine_pandoc_arguments(metadata: YAMLMetadata) -> list[str]:
         "-s",
         "--template",
         "eisvogel",
-        # "-V",
-        # "lang=de",
         "--syntax-highlighting=idiomatic",
         "--figure-caption-position=below",
         "--table-caption-position=below",
+    ]
+
+    if "crossref" in pandoc_options:
+        # pandoc-crossref emits lstlisting; -M listings=true makes eisvogel load \usepackage{listings}
+        pandoc_args += ["--filter", "pandoc-crossref", "-M", "listings=true"]
+
+    pandoc_args += [
         "--citeproc",
         "--csl",
         str(_RESOURCES / "ieee.csl"),
@@ -33,12 +40,10 @@ def determine_pandoc_arguments(metadata: YAMLMetadata) -> list[str]:
     if work_dir := os.environ.get("WORK_DIR"):
         pandoc_args += ["--resource-path", work_dir]
 
-    if not metadata:
-        return pandoc_args
-
-    if (pandoc_options := metadata.get("pandoc-options", None)) and "toc" in pandoc_options:
+    if "toc" in pandoc_options:
         pandoc_args += [
             "--number-sections",
             "--toc",
         ]
+
     return pandoc_args

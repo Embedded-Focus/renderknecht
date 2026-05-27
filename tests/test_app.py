@@ -65,3 +65,13 @@ def test_determine_pandoc_arguments_toc() -> None:
         "--number-sections",
         "--toc",
     ]
+
+
+def test_determine_pandoc_arguments_crossref() -> None:
+    args = determine_pandoc_arguments({"pandoc-options": ["crossref"]})
+    crossref_idx = args.index("pandoc-crossref")
+    citeproc_idx = args.index("--citeproc")
+    assert crossref_idx < citeproc_idx, "pandoc-crossref filter must precede --citeproc"
+    # eisvogel only loads \usepackage{listings} when this variable is set
+    listings_idx = args.index("listings=true")
+    assert args[listings_idx - 1] == "-M"
