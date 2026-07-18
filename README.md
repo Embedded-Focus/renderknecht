@@ -1,4 +1,26 @@
+<div align="center">
+
+<img src="assets/renderknecht_logo.png" alt="Renderknecht" width="260">
+
 # Renderknecht
+
+*Render Markdown files into polished PDFs with pandoc and Eisvogel.*
+
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Python 3.12+](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)](pyproject.toml)
+[![Flask](https://img.shields.io/badge/Flask-web%20UI-000000?logo=flask&logoColor=white)](https://flask.palletsprojects.com/)
+[![Pandoc](https://img.shields.io/badge/Pandoc-renderer-2F7BBF)](https://pandoc.org/)
+[![Podman](https://img.shields.io/badge/Podman-supported-892CA0?logo=podman&logoColor=white)](https://podman.io/)
+[![uv](https://img.shields.io/badge/uv-supported-DE5FE9)](https://docs.astral.sh/uv/)
+[![Last commit](https://img.shields.io/github/last-commit/Embedded-Focus/renderknecht?logo=github)](https://github.com/Embedded-Focus/renderknecht/commits/main)
+
+**[Quick Start](#quick-start)** ·
+**[Per-user Resources](#per-user-resources)** ·
+**[Markdown Front Matter](#markdown-front-matter)** ·
+**[Container Stack](#container-stack-hedgedoc--renderknecht)** ·
+**[Resource Overrides](#advanced-resource-overrides)**
+
+</div>
 
 Renders Markdown files into beautiful PDFs via [pandoc](https://pandoc.org/) and the
 [eisvogel](https://github.com/Wandmalfarbe/pandoc-latex-template) LaTeX template.
