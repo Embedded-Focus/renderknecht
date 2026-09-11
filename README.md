@@ -7,6 +7,9 @@
 *Render Markdown files into polished PDFs with pandoc and Eisvogel.*
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![CI](https://github.com/Embedded-Focus/renderknecht/actions/workflows/ci.yml/badge.svg)](https://github.com/Embedded-Focus/renderknecht/actions/workflows/ci.yml)
+[![Security](https://github.com/Embedded-Focus/renderknecht/actions/workflows/security.yml/badge.svg)](https://github.com/Embedded-Focus/renderknecht/actions/workflows/security.yml)
+[![Dependabot](https://img.shields.io/badge/dependabot-enabled-025e8c?logo=dependabot)](https://github.com/Embedded-Focus/renderknecht/security/dependabot)
 [![Python 3.12+](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)](pyproject.toml)
 [![Flask](https://img.shields.io/badge/Flask-web%20UI-000000?logo=flask&logoColor=white)](https://flask.palletsprojects.com/)
 [![Pandoc](https://img.shields.io/badge/Pandoc-renderer-2F7BBF)](https://pandoc.org/)
