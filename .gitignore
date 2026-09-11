@@ -5,6 +5,7 @@ __pycache__/
 .direnv/
 .claude/
 .agent-shell/
+.agent-circus/
 
 # Devenv
 .devenv*
