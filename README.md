@@ -17,48 +17,101 @@
 [![uv](https://img.shields.io/badge/uv-supported-DE5FE9)](https://docs.astral.sh/uv/)
 [![Last commit](https://img.shields.io/github/last-commit/Embedded-Focus/renderknecht?logo=github)](https://github.com/Embedded-Focus/renderknecht/commits/main)
 
+**[Requirements](#requirements)** ·
 **[Quick Start](#quick-start)** ·
 **[Per-user Resources](#per-user-resources)** ·
 **[Markdown Front Matter](#markdown-front-matter)** ·
 **[Container Stack](#container-stack-hedgedoc--renderknecht)** ·
-**[Resource Overrides](#advanced-resource-overrides)**
+**[Resource Overrides](#advanced-resource-overrides)** ·
+**[Releasing](https://github.com/Embedded-Focus/renderknecht/blob/main/RELEASING.md)**
 
 </div>
 
 Renders Markdown files into beautiful PDFs via [pandoc](https://pandoc.org/) and the
 [eisvogel](https://github.com/Wandmalfarbe/pandoc-latex-template) LaTeX template.
 
-All tooling (pandoc, LaTeX, graphviz) runs inside a container — nothing to install locally
-beyond podman.
+Install Renderknecht from a Python package index and use Podman or Docker locally.
+
+## Requirements
+
+To install and use Renderknecht, the host needs:
+
+- Linux on x86-64 or ARM64
+- Podman or Docker, configured to build and run containers
+- Either `uv`, or Python 3.12 or newer with a Python package installer such as `pip` or `pipx`
+- Network access during installation and the first local image build
+
+Pandoc, LaTeX, Graphviz, and Eisvogel do not need to be installed on the host.
 
 ## Quick start
 
-**1. Build the image** (once):
+**1. Install the host command**:
 
 ```sh
-make build              # uses podman by default
-make build RUNTIME=docker  # use Docker instead
+uv tool install renderknecht
 ```
 
-**2. Install** (gets both `renderknecht` and `renderknecht-wrapper`):
+For a release published only to TestPyPI:
 
 ```sh
-uv tool install -e .
+uv tool install --index https://test.pypi.org/simple/ renderknecht
 ```
+
+**2. Build the tested local image**:
+
+```sh
+renderknecht image build
+```
+
+The first render also builds the image automatically when no active image exists.
 
 **3. Render**:
 
 ```sh
-renderknecht-wrapper < input.md > output.pdf
+renderknecht < input.md > output.pdf
 ```
 
-The wrapper always mounts the **current working directory** read-only into the
+The host command always mounts the **current working directory** read-only into the
 container (`/work`), so relative image references in the Markdown resolve
 correctly as long as the images live alongside the input file:
 
 ```sh
 cd /my/project
-renderknecht-wrapper < report.md > report.pdf   # images in /my/project/ work
+renderknecht < report.md > report.pdf   # images in /my/project/ work
+```
+
+`renderknecht-wrapper` remains available as a compatibility alias.
+
+## Image management
+
+The package carries a pinned manifest and a Containerfile. Downloads are SHA-256 verified,
+the build uses a private temporary context, and a new image becomes active only after it
+renders a smoke-test PDF successfully.
+
+```sh
+renderknecht image status   # show the runtime and active image
+renderknecht image build    # build the bundled, tested dependency set
+renderknecht image update   # resolve compatible upstream releases and test them
+renderknecht image rebuild  # force a clean rebuild of the bundled image
+renderknecht image remove   # remove locally managed images
+```
+
+Image manifests and active state are stored below
+`${XDG_STATE_HOME:-~/.local/state}/renderknecht/`.
+Rebuild any saved manifest exactly with
+`renderknecht image build --manifest /path/to/manifest.json`.
+
+## Build from a Git clone
+
+The original repository workflow remains supported:
+
+```sh
+git clone https://github.com/Embedded-Focus/renderknecht.git
+cd renderknecht
+make build                    # Podman by default
+make build RUNTIME=docker     # or Docker
+uv tool install -e .
+RENDERKNECHT_IMAGE=renderknecht:latest renderknecht < input.md > output.pdf
 ```
 
 ## Per-user resources
@@ -124,8 +177,8 @@ podman run --rm -i \
     renderknecht:latest < input.md > output.pdf
 ```
 
-Override the image name used by the wrapper:
+Override the image name used by the host command:
 
 ```sh
-RENDERKNECHT_IMAGE=renderknecht:dev renderknecht-wrapper < input.md > output.pdf
+RENDERKNECHT_IMAGE=renderknecht:dev renderknecht < input.md > output.pdf
 ```

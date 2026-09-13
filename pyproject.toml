@@ -6,6 +6,9 @@ authors = [
 version = "0.1.0"
 description = "PDF renderer based on pandoc, the eisvogel template and other components"
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+keywords = ["markdown", "pandoc", "pdf", "latex", "cli"]
 requires-python = ">=3.12"
 classifiers = [
     'Development Status :: 4 - Beta',
@@ -19,20 +22,24 @@ classifiers = [
     'Programming Language :: Python :: 3 :: Only',
     'Programming Language :: Python :: Implementation :: CPython',
     'Programming Language :: Python :: Implementation :: PyPy',
-    'Operating System :: OS Independent',
+    'Operating System :: POSIX :: Linux',
 ]
-dependencies = [
+dependencies = []
+
+[project.optional-dependencies]
+container = [
     "flask>=3.1.0",
     "graphviz>=0.20.3",
-    "gunicorn>=23.0.0",
     "httpx>=0.28.0",
     "pandoc-latex-environment>=1.2.1.0",
     "pyyaml>=6.0.2",
-    "h11==0.16.0",
 ]
 
 [project.urls]
 "Homepage" = "https://honeytreelabs.com"
+"Documentation" = "https://github.com/Embedded-Focus/renderknecht#readme"
+"Repository" = "https://github.com/Embedded-Focus/renderknecht"
+"Issues" = "https://github.com/Embedded-Focus/renderknecht/issues"
 
 [build-system]
 requires = ["hatchling"]
@@ -40,7 +47,8 @@ build-backend = "hatchling.build"
 
 [project.scripts]
 renderknecht = "renderknecht.cli:main"
-renderknecht-wrapper = "renderknecht.podman_wrapper:main"
+renderknecht-render = "renderknecht.renderer_cli:main"
+renderknecht-wrapper = "renderknecht.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/renderknecht"]
@@ -125,9 +133,16 @@ quote-style = "double"
 
 [dependency-groups]
 dev = [
+    "build>=1.4.0",
+    "flask>=3.1.0",
+    "graphviz>=0.20.3",
+    "httpx>=0.28.0",
+    "pandoc-latex-environment>=1.2.1.0",
     "pre-commit>=4.5.1",
     "pytest>=9.0.3",
+    "pyyaml>=6.0.2",
     "ruff>=0.15.1",
+    "twine>=6.2.0",
     "ty>=0.0.17",
 ]
 

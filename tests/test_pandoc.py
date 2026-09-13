@@ -68,7 +68,8 @@ def test_embed_graphviz_empty() -> None:
     assert not tmp_files
 
 
-def test_embed_graphviz() -> None:
+def test_embed_graphviz(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setitem(pandoc.TOOLS, "graphviz", lambda markup: f"<svg>{markup}</svg>")
     tmp_files: pandoc.TemporaryFiles = []
     result = pandoc.embed_diagrams(
         """Hello,
@@ -105,7 +106,8 @@ o.m.g.
     )
 
 
-def test_embed_graphviz_caption() -> None:
+def test_embed_graphviz_caption(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setitem(pandoc.TOOLS, "graphviz", lambda markup: f"<svg>{markup}</svg>")
     tmp_files: pandoc.TemporaryFiles = []
     result = pandoc.embed_diagrams(
         """Hello,
