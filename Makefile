@@ -10,11 +10,12 @@ help: ## Show this help
 build: ## Build container image
 	$(RUNTIME) build \
 		--build-arg GIT_HASH=$(GIT_HASH) \
+		--build-arg RENDERKNECHT_VERSION=$$(uv version --short) \
 		-t renderknecht:latest \
 		-f Dockerfile.renderknecht .
 
 test: ## Run tests
-	uv run pytest
+	uv run --extra container pytest
 
 lint: ## Run Ruff lint checks
 	uv run ruff check

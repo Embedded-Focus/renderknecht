@@ -1,0 +1,141 @@
+name: Publish to TestPyPI
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate release artifacts
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+
+    steps:
+      - name: Check out exact release ref
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.0.1
+        with:
+          enable-cache: true
+          version: latest-known
+
+      - name: Install Python
+        run: uv python install 3.14
+
+      - name: Validate tag and package version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! "${GITHUB_REF}" =~ ^refs/tags/v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+            echo "Release ref must be a stable vMAJOR.MINOR.PATCH tag" >&2
+            exit 1
+          fi
+          tag_version="${BASH_REMATCH[1]}"
+          package_version="$(uv version --short)"
+          if [[ "${tag_version}" != "${package_version}" ]]; then
+            echo "Tag ${tag_version} does not match package ${package_version}" >&2
+            exit 1
+          fi
+          echo "version=${package_version}" >> "${GITHUB_OUTPUT}"
+
+      - name: Install validation dependencies
+        run: uv sync --locked --all-groups --all-extras
+
+      - name: Run checks and audit
+        run: |
+          make check
+          make audit
+
+      - name: Build distributions once
+        run: uv build --no-sources
+
+      - name: Validate distribution metadata
+        run: uv run twine check --strict dist/*
+
+      - name: Verify wheel and source distribution entry points
+        run: |
+          uvx --isolated --from dist/renderknecht-*.whl renderknecht --help
+          uvx --isolated --from dist/renderknecht-*.tar.gz renderknecht --help
+
+      - name: Build and smoke-test packaged image
+        env:
+          RENDERKNECHT_RUNTIME: docker
+          XDG_STATE_HOME: ${{ runner.temp }}/renderknecht-state
+        run: uvx --isolated --from dist/renderknecht-*.whl renderknecht image build
+
+      - name: Upload validated distributions
+        uses: actions/upload-artifact@v7
+        with:
+          name: python-distributions
+          path: dist/
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Publish validated artifacts
+    needs: validate
+    runs-on: ubuntu-latest
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/p/renderknecht
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Download validated distributions
+        uses: actions/download-artifact@v8
+        with:
+          name: python-distributions
+          path: dist/
+
+      - name: Publish to TestPyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+
+  verify:
+    name: Verify installation from TestPyPI
+    needs: [validate, publish]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Install Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - name: Install release from TestPyPI
+        env:
+          VERSION: ${{ needs.validate.outputs.version }}
+        run: |
+          set -euo pipefail
+          for attempt in {1..12}; do
+            if python -m pip install --no-deps \
+              --index-url https://test.pypi.org/simple/ \
+              "renderknecht==${VERSION}"; then
+              exit 0
+            fi
+            if [[ "${attempt}" == 12 ]]; then
+              exit 1
+            fi
+            sleep 10
+          done
+
+      - name: Verify CLI and render from TestPyPI installation
+        env:
+          RENDERKNECHT_RUNTIME: docker
+          XDG_STATE_HOME: ${{ runner.temp }}/renderknecht-state
+        run: |
+          renderknecht --help
+          renderknecht image build
+          printf '%s\n' '# TestPyPI smoke test' | renderknecht > output.pdf
+          python -c 'import pathlib; assert pathlib.Path("output.pdf").read_bytes().startswith(b"%PDF-")'

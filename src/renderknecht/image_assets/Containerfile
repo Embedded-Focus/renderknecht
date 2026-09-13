@@ -1,0 +1,43 @@
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+
+ARG RENDERKNECHT_VERSION
+ARG MANIFEST_FINGERPRINT
+ARG SYSTEM_PACKAGES
+
+LABEL org.opencontainers.image.source="https://github.com/Embedded-Focus/renderknecht" \
+      org.opencontainers.image.description="Renderknecht Markdown-to-PDF renderer" \
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.version="${RENDERKNECHT_VERSION}" \
+      io.renderknecht.manifest-fingerprint="${MANIFEST_FINGERPRINT}"
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PANDOC_DIR=/.pandoc \
+    PYTHONPATH=/opt/renderknecht \
+    RENDERKNECHT_GIT_HASH=${RENDERKNECHT_VERSION}-${MANIFEST_FINGERPRINT}
+
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends ${SYSTEM_PACKAGES} \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY artifacts/pandoc.tar.gz /tmp/pandoc.tar.gz
+COPY artifacts/pandoc-crossref.tar.xz /tmp/pandoc-crossref.tar.xz
+COPY artifacts/eisvogel.tar.gz /tmp/eisvogel.tar.gz
+
+RUN tar -xzf /tmp/pandoc.tar.gz --strip-components=1 -C /usr/local \
+    && tar -xJf /tmp/pandoc-crossref.tar.xz -C /usr/local/bin pandoc-crossref \
+    && mkdir -p ${PANDOC_DIR}/templates \
+    && ln -s ${PANDOC_DIR} /root/.pandoc \
+    && tar -xzf /tmp/eisvogel.tar.gz --strip-components=1 --no-wildcards-match-slash \
+        -C ${PANDOC_DIR}/templates --wildcards '*/eisvogel.latex' \
+    && rm /tmp/pandoc.tar.gz /tmp/pandoc-crossref.tar.xz /tmp/eisvogel.tar.gz
+
+COPY container-requirements.txt /tmp/container-requirements.txt
+RUN uv pip install --system --require-hashes -r /tmp/container-requirements.txt \
+    && rm /tmp/container-requirements.txt
+
+COPY package/ /opt/renderknecht/renderknecht/
+COPY entrypoint.sh /usr/local/bin/renderknecht-entrypoint
+RUN chmod 0755 /usr/local/bin/renderknecht-entrypoint
+
+ENTRYPOINT ["/usr/local/bin/renderknecht-entrypoint"]
