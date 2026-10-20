@@ -6,6 +6,8 @@ __pycache__/
 .claude/
 .agent-shell/
 .agent-circus/
+.pi/
+opencode.json
 
 # Devenv
 .devenv*
