@@ -58,10 +58,6 @@ markers = []
 log_cli = true
 log_cli_level = "INFO"
 
-[tool.uv]
-preview-features = [
-    "audit-command",
-]
 
 [tool.ruff]
 line-length = 110
