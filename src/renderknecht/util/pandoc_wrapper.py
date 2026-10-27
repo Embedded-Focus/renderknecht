@@ -30,6 +30,8 @@ def determine_pandoc_arguments(metadata: YAMLMetadata) -> list[str]:
         pandoc_args += ["--filter", "pandoc-crossref", "-M", "listings=true"]
 
     pandoc_args += [
+        "--lua-filter",
+        str(_RESOURCES / "ascii-code.lua"),
         "--citeproc",
         "--csl",
         str(_RESOURCES / "ieee.csl"),

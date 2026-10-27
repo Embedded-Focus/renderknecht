@@ -5,6 +5,7 @@ import pytest
 from renderknecht.util.pandoc_wrapper import determine_pandoc_arguments
 
 _CSL_PATH = str(importlib.resources.files("renderknecht") / "resources" / "ieee.csl")
+_ASCII_FILTER = str(importlib.resources.files("renderknecht") / "resources" / "ascii-code.lua")
 
 
 def test_determine_pandoc_arguments_none() -> None:
@@ -22,6 +23,8 @@ def test_determine_pandoc_arguments_none() -> None:
         "--syntax-highlighting=idiomatic",
         "--figure-caption-position=below",
         "--table-caption-position=below",
+        "--lua-filter",
+        _ASCII_FILTER,
         "--citeproc",
         "--csl",
         _CSL_PATH,
@@ -57,6 +60,8 @@ def test_determine_pandoc_arguments_toc() -> None:
         "--syntax-highlighting=idiomatic",
         "--figure-caption-position=below",
         "--table-caption-position=below",
+        "--lua-filter",
+        _ASCII_FILTER,
         "--citeproc",
         "--csl",
         _CSL_PATH,
