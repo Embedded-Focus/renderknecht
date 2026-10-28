@@ -124,6 +124,15 @@ The build renders one small document at the end. It does that through
 `render_markdown`, so preamble.yaml, the pandoc filters and the template all run. If
 they do not fit together, the build stops there.
 
+Eisvogel 3.5 loads the LaTeX packages `sourcesans` and `sourcecodepro` for the default
+look. Debian trixie has the older name `sourcesanspro` only, so the renderer defaults
+to `fontfamily: sourcesanspro` with `fontfamilyoptions: [default]`. The option is
+needed, because the package only defines the font. Without the option, the document
+keeps the serif font that LaTeX starts with. Eisvogel skips its own `sourcecodepro`
+once a font family is set, so the renderer loads Source Code Pro itself. Code
+snippets therefore stay in Source Code Pro in every render. The typeface is the same,
+so documents look the same as before.
+
 The newest mermaid-cli release is 12.0.0. It asks for `mermaid ^12.0.0`, so the image
 installs mermaid 12.2.0 next to it. A test makes sure that `mmdc` loads that copy. The
 npm packages carry no checksum in the Dockerfile, and npm picks the newest build of each

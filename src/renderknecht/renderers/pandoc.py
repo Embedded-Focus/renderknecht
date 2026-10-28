@@ -64,6 +64,39 @@ _CREATOR = (
     "(https://github.com/Embedded-Focus/renderknecht/)"
 )
 
+#: Load Source Code Pro as the code (monospace) font. Eisvogel only loads this
+#: package itself when no `fontfamily` is set. Our default look needs
+#: `fontfamily: sourcesanspro` on Debian trixie, so Eisvogel skips it and the
+#: driver loads it instead. Code in this file owns the include, so that no
+#: preamble file can lose the code font.
+CODE_FONT_INCLUDE = "```{=latex}\n\\usepackage{sourcecodepro}\n```\n"
+
+#: The font family that keeps the look Eisvogel would bring with its default
+#: `sourcesans` package. That package is gone from Debian trixie, so trixie's
+#: equivalent `sourcesanspro` takes its place. The `default` option is needed,
+#: because the package only defines the family. Without it the document keeps
+#: the serif font LaTeX starts with.
+DEFAULT_FONT_METADATA = {
+    "fontfamily": "sourcesanspro",
+    "fontfamilyoptions": ["default"],
+}
+
+
+def _as_include_list(value: object) -> list[str]:
+    """Return a header-includes value as a list of LaTeX include strings.
+
+    :param value: A header-includes value: None, a string, or a sequence of
+        strings.
+    :returns: The includes as a list of strings. None becomes an empty list.
+    """
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, (list, tuple)):
+        return [str(item) for item in value]
+    return [str(value)]
+
 
 def embed_images(markdown: str) -> str:
     """Rewrite HedgeDoc upload URLs to local filesystem paths.
@@ -246,8 +279,18 @@ def augment_yaml_preamble(hedgedoc_markdown: str) -> tuple[str, util_yaml.YAMLMe
             f"---\n{match.group(1)}",
             Loader=SafeLoader,
         )
+        preamble_includes = _as_include_list(augmented_metadata.get("header-includes"))
         if yaml_metadata is not None:
             augmented_metadata = {**augmented_metadata, **yaml_metadata}
+            # A header-includes entry in the document front matter would replace
+            # the preamble entries in a plain ** merge. That silently drops the
+            # code font and every other include. Keep both lists. Documents often
+            # copy a preamble block verbatim, so drop exact duplicates. Two copies
+            # would run \newcommand or \newtcolorbox twice and LaTeX stops with an
+            # "already defined" error.
+            if "header-includes" in yaml_metadata:
+                combined = preamble_includes + _as_include_list(yaml_metadata["header-includes"])
+                augmented_metadata["header-includes"] = list(dict.fromkeys(combined))
 
         augmented_metadata = {
             **augmented_metadata,
@@ -263,6 +306,15 @@ def augment_yaml_preamble(hedgedoc_markdown: str) -> tuple[str, util_yaml.YAMLMe
 
         if isinstance(augmented_metadata.get("date"), str) and augmented_metadata["date"].lower() == "today":
             augmented_metadata["date"] = datetime.date.today().isoformat()
+
+        # The fonts belong to the driver, not to one preamble file. A config that
+        # overrides fontfamily or header-includes must not lose Source Code Pro,
+        # or code snippets fall back to Latin Modern Typewriter.
+        augmented_metadata = {**DEFAULT_FONT_METADATA, **augmented_metadata}
+        code_font_includes = _as_include_list(augmented_metadata.get("header-includes"))
+        if not any("sourcecodepro" in include for include in code_font_includes):
+            code_font_includes.append(CODE_FONT_INCLUDE)
+        augmented_metadata["header-includes"] = code_font_includes
 
         creator_block = (
             f"```{{=latex}}\n\\AtBeginDocument{{\\hypersetup{{pdfcreator={{{_CREATOR}}}}}}}\n```\n"

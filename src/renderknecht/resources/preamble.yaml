@@ -6,6 +6,13 @@ titlepage-text-color: "010326"
 titlepage: true
 colorlinks: true
 toccolor: black
+# Eisvogel loads the LaTeX package `sourcesans` when you set no font family. Debian
+# trixie has the older name `sourcesanspro` only, and the typeface is the same. So we
+# set the family here. See the note in AGENTS.md.
+fontfamily: sourcesanspro
+# The option is needed, because the package only defines the font family. Without the
+# option, the document keeps the serif font that LaTeX starts with.
+fontfamilyoptions: [default]
 header-includes:
 - |
   ```{=latex}
@@ -20,6 +27,9 @@ header-includes:
   \newtcolorbox{warning-box}{colback=orange!5!white,arc=0pt,outer arc=0pt,colframe=orange!80!black}
   \newtcolorbox{error-box}{colback=red!5!white,arc=0pt,outer arc=0pt,colframe=red!75!black}
   ```
+# Eisvogel loads Source Code Pro only when no font family is set. We set one above,
+# so it does not. The driver adds the `sourcecodepro` include to header-includes on
+# every render. See CODE_FONT_INCLUDE in renderers/pandoc.py.
 pandoc-latex-environment:
   tcolorbox: [box]
   info-box: [info]

@@ -44,6 +44,75 @@ def test_augment_yaml_preamble_injects_pdfcreator(monkeypatch: pytest.MonkeyPatc
     assert any("renderknecht testhash" in entry for entry in header_includes)
 
 
+def test_augment_yaml_preamble_adds_code_font_without_preamble() -> None:
+    """A stripped preamble must not lose Source Code Pro or the font family."""
+    os.environ["PREAMBLE_YAML"] = "/dev/null"
+    tmp_files: pandoc.TemporaryFiles = []
+    _, metadata = pandoc.prepare_markdown("---\ntitle: test\n---\n", tmp_files)
+    assert metadata is not None
+    assert metadata.get("fontfamily") == "sourcesanspro"
+    assert metadata.get("fontfamilyoptions") == ["default"]
+    assert any("sourcecodepro" in entry for entry in metadata.get("header-includes", []))
+
+
+def test_augment_yaml_preamble_keeps_code_font_with_preamble() -> None:
+    """With the bundled preamble the code font is added exactly once."""
+    tmp_files: pandoc.TemporaryFiles = []
+    _, metadata = pandoc.prepare_markdown("---\ntitle: test\n---\n", tmp_files)
+    assert metadata is not None
+    code_includes = [entry for entry in metadata.get("header-includes", []) if "sourcecodepro" in entry]
+    assert len(code_includes) == 1
+
+
+def test_augment_yaml_preamble_keeps_code_font_when_document_sets_header_includes() -> None:
+    """Document header-includes must not replace the preamble's code font entry.
+
+    Without the additive merge, front matter sets header-includes, the preamble
+    entry is dropped, and code falls back to the default typewriter font.
+    """
+    tmp_files: pandoc.TemporaryFiles = []
+    _, metadata = pandoc.prepare_markdown(
+        '---\nheader-includes: ["```{=latex}\\n\\\\usepackage{myfont}\\n```"]\n---\n\ntext\n',
+        tmp_files,
+    )
+    assert metadata is not None
+    includes = metadata.get("header-includes", [])
+    assert any("sourcecodepro" in entry for entry in includes)
+    assert any("myfont" in entry for entry in includes)
+    assert any("pdfcreator" in entry for entry in includes)
+
+
+def test_augment_yaml_preamble_drops_duplicated_includes() -> None:
+    """A front-matter include that copies the preamble must not be added twice.
+
+    Two copies run the same \newcommand twice. LaTeX then stops with an
+    "already defined" error and produces no PDF.
+    """
+    pdflscape = (
+        "```{=latex}\n\\usepackage{pdflscape}\n"
+        "\\newcommand{\\blandscape}{\\begin{landscape}}\n"
+        "\\newcommand{\\elandscape}{\\end{landscape}}\n```\n"
+    )
+    tmp_files: pandoc.TemporaryFiles = []
+    _, metadata = pandoc.prepare_markdown(
+        "---\nheader-includes:\n- |\n  ```{=latex}\n  \\usepackage{pdflscape}\n"
+        "  \\newcommand{\\blandscape}{\\begin{landscape}}\n"
+        "  \\newcommand{\\elandscape}{\\end{landscape}}\n  ```\n---\n\ntext\n",
+        tmp_files,
+    )
+    assert metadata is not None
+    includes = metadata.get("header-includes", [])
+    assert includes.count(pdflscape) == 1
+    assert any("sourcecodepro" in entry for entry in includes)
+
+
+def test_as_include_list_handles_scalar_and_sequence() -> None:
+    assert pandoc._as_include_list(None) == []
+    assert pandoc._as_include_list("a") == ["a"]
+    assert pandoc._as_include_list(["a", "b"]) == ["a", "b"]
+    assert pandoc._as_include_list(("a", "b")) == ["a", "b"]
+
+
 def test_embed_images_skips_rewrite_when_not_mounted() -> None:
     tmp_files: pandoc.TemporaryFiles = []
     markdown, metadata = pandoc.prepare_markdown("some text", tmp_files)
@@ -303,7 +372,11 @@ def test_extract_yaml_metadata() -> None:
 
     assert "# Hello, World!" in markdown
     assert "pdfcreator" in markdown
-    assert metadata == {"header-includes": [_CREATOR_BLOCK]}
+    assert metadata == {
+        "fontfamily": "sourcesanspro",
+        "fontfamilyoptions": ["default"],
+        "header-includes": [pandoc.CODE_FONT_INCLUDE, _CREATOR_BLOCK],
+    }
     assert not tmp_files
 
 
@@ -328,10 +401,13 @@ header-includes:
     assert "pdfcreator" in markdown
     assert "# Hello, World!" in markdown
     assert metadata == {
+        "fontfamily": "sourcesanspro",
+        "fontfamilyoptions": ["default"],
         "header-includes": [
             "```{=latex}\n\\usepackage{pdflscape}\n\\newcommand{\\blandscape}{\\begin{landscape}}\n\\newcommand{\\elandscape}{\\end{landscape}}\n",
+            pandoc.CODE_FONT_INCLUDE,
             _CREATOR_BLOCK,
-        ]
+        ],
     }
     assert not tmp_files
 
@@ -364,6 +440,7 @@ author:
         "header-includes": [
             "```{=latex}\n\\usepackage{pdflscape}\n\\newcommand{\\blandscape}{\\begin{landscape}}\n\\newcommand{\\elandscape}{\\end{landscape}}\n```\n",
             "```{=latex}\n\\usepackage{tcolorbox}\n\\newtcolorbox{info-box}{colback=cyan!5!white,arc=0pt,outer arc=0pt,colframe=cyan!60!black}\n\\newtcolorbox{warning-box}{colback=orange!5!white,arc=0pt,outer arc=0pt,colframe=orange!80!black}\n\\newtcolorbox{error-box}{colback=red!5!white,arc=0pt,outer arc=0pt,colframe=red!75!black}\n```\n",
+            "```{=latex}\n\\usepackage{sourcecodepro}\n```\n",
             _CREATOR_BLOCK,
         ],
         "pandoc-latex-environment": {
@@ -373,6 +450,8 @@ author:
             "error-box": ["error"],
         },
         "colorlinks": True,
+        "fontfamily": "sourcesanspro",
+        "fontfamilyoptions": ["default"],
         "toccolor": "black",
         "titlepage": True,
         "titlepage-color": "ffffff",
@@ -412,6 +491,7 @@ author:
         "header-includes": [
             "```{=latex}\n\\usepackage{pdflscape}\n\\newcommand{\\blandscape}{\\begin{landscape}}\n\\newcommand{\\elandscape}{\\end{landscape}}\n```\n",
             "```{=latex}\n\\usepackage{tcolorbox}\n\\newtcolorbox{info-box}{colback=cyan!5!white,arc=0pt,outer arc=0pt,colframe=cyan!60!black}\n\\newtcolorbox{warning-box}{colback=orange!5!white,arc=0pt,outer arc=0pt,colframe=orange!80!black}\n\\newtcolorbox{error-box}{colback=red!5!white,arc=0pt,outer arc=0pt,colframe=red!75!black}\n```\n",
+            "```{=latex}\n\\usepackage{sourcecodepro}\n```\n",
             _CREATOR_BLOCK,
         ],
         "pandoc-latex-environment": {
@@ -421,6 +501,8 @@ author:
             "error-box": ["error"],
         },
         "colorlinks": True,
+        "fontfamily": "sourcesanspro",
+        "fontfamilyoptions": ["default"],
         "toccolor": "black",
         "titlepage": False,
         "titlepage-color": "ffffff",
@@ -515,6 +597,8 @@ toc-own-page: true
     assert metadata == {
         "pandoc-options": ["something", "else", "toc"],
         "toc-own-page": True,
-        "header-includes": [_CREATOR_BLOCK],
+        "fontfamily": "sourcesanspro",
+        "fontfamilyoptions": ["default"],
+        "header-includes": [pandoc.CODE_FONT_INCLUDE, _CREATOR_BLOCK],
     }
     assert not tmp_files
