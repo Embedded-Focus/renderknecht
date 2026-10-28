@@ -232,7 +232,11 @@ def embed_diagrams(markdown: str, tmp_files: TemporaryFiles) -> str:
         tool = TOOLS[match.group(1)]
         block_content = match.group(6)
         caption = match.group(3) if match.group(3) else ""
-        formatting = f"{{ {match.group(5)} }}" if match.group(5) else ""
+        # An attribute block that already starts with `{` goes through unchanged.
+        # Pandoc reads one level of braces. Two levels give it text instead of an
+        # attribute, so the braces stay in the PDF and pandoc-crossref finds no label.
+        attributes = (match.group(5) or "").strip()
+        formatting = attributes if attributes.startswith("{") else f"{{ {attributes} }}" if attributes else ""
         with tempfile.NamedTemporaryFile(delete=False, suffix=tool.suffix) as tmp_file:
             tmp_files.append(tmp_file)  # type: ignore
             rendered = tool.render(block_content)

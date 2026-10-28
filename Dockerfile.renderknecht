@@ -9,10 +9,12 @@ LABEL org.opencontainers.image.authors="Rainer Poisel <rainer@honeytreelabs.com>
 ARG SNAPSHOT_DATE=20261020T213255Z
 ARG UV_VERSION=0.13.6
 ARG UV_SHA256=f29c3e94ffabd7e6f3ba521dba169a9b7ec12100bf3257087f0f24f6123f3645
-ARG PANDOC_VERSION=3.13
-ARG PANDOC_SHA256=38aa33b325a2bc96a4c39409631212db55702f564250bcdbead180b3bf646389
-# pandoc-crossref is built for one pandoc version. Change it together with
-# PANDOC_VERSION, or the filter stops working.
+ARG PANDOC_VERSION=3.12.1
+ARG PANDOC_SHA256=d0c90410e90204c9ca83b8539fac5c7aed01fd537207e4585849f8abc5df20b8
+# pandoc-crossref works with one pandoc version. Change PANDOC_VERSION together with
+# this value. The newest release, v0.3.26, works with pandoc 3.12.1. Keep
+# PANDOC_VERSION in the pandoc 3.12 line until pandoc-crossref works with a newer
+# pandoc. The step that installs this filter compares the two versions below.
 ARG PANDOC_CROSSREF_VERSION=v0.3.26
 ARG PANDOC_CROSSREF_SHA256=83d09646629234dfcd3d267e28184f46b9d468e98508efb3542b014634bfe999
 ARG EISVOGEL_VERSION=3.5.1
@@ -107,6 +109,22 @@ RUN wget -q -O /tmp/pandoc-crossref.tar.xz \
     && echo "${PANDOC_CROSSREF_SHA256}  /tmp/pandoc-crossref.tar.xz" | sha256sum --check \
     && tar xJf /tmp/pandoc-crossref.tar.xz -C /usr/local/bin pandoc-crossref \
     && rm /tmp/pandoc-crossref.tar.xz
+
+# pandoc-crossref names the pandoc version that it works with. When pandoc and the
+# filter differ, the filter prints "Strange things may (and likely will) happen
+# silently" and can write wrong figures and cross-references. The last render of the
+# build does not catch this, because a warning does not fail a render. Compare the
+# major and the minor version here. The patch level does not matter.
+RUN pandoc-crossref --version \
+    && crossref_pandoc=$(pandoc-crossref --version | sed -n 's/.* built with Pandoc v\([0-9]*\.[0-9]*\)[,.].*/\1/p') \
+    && installed_pandoc=$(pandoc --version | head -1 | sed 's/^pandoc \([0-9]*\.[0-9]*\).*/\1/') \
+    && if [ "x$crossref_pandoc" = "x$installed_pandoc" ]; then \
+           echo "pandoc $installed_pandoc matches the pandoc version that pandoc-crossref works with"; \
+       else \
+           echo "pandoc-crossref ${PANDOC_CROSSREF_VERSION} works with pandoc $crossref_pandoc, not with pandoc $installed_pandoc."; \
+           echo "Change PANDOC_VERSION and PANDOC_CROSSREF_VERSION together."; \
+           exit 1; \
+       fi
 
 # Node.js brings npm, which installs mermaid-cli. Debian has no Node.js 26 package, and
 # mermaid-cli needs Node.js 22.13 or newer. The tarball is for amd64 only, like pandoc

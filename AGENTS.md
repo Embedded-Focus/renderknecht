@@ -82,8 +82,10 @@ in README.md and the `ARG` block at the top of `Dockerfile.renderknecht`.
   fails.
 
 When you bump a version, change one version at a time. Then run a few renders and
-compare the PDFs. pandoc-crossref is built for one pandoc version, so its version
-changes together with pandoc.
+compare the PDFs. pandoc-crossref works with one pandoc version, so its version and
+PANDOC_VERSION must change together. When the two differ, the filter prints a warning
+and can write wrong figures and cross-references. The build compares the two versions
+after it installs the filter. It stops when they differ.
 
 The npm parts carry no checksum in the Dockerfile. npm makes sure that each package it
 downloads is intact, and the two `ARG` values set the versions we name. npm still picks
@@ -112,6 +114,13 @@ cannot reach it.
 
 Adding a tool means one `render_<name>()` function and one `TOOLS` entry. The
 fence regex comes from `TOOLS`, so you change nothing else.
+
+renderknecht puts the text behind the pipe in `[caption|attributes]` into the
+attribute block after the image. Write one attribute there, for example `height=90%`
+or the identifier `#fig:deploy` for pandoc-crossref. Do not add braces around it.
+When your text already starts with `{`, renderknecht passes it through unchanged.
+Pandoc reads one level of braces, so `{ {#fig:x} }` is text and not an attribute. The
+braces stay on the page, and every `@fig:x` prints `??`.
 
 Mermaid output is a PDF from Chromium, not an SVG from librsvg. Pandoc converts SVG with
 librsvg, and Mermaid SVG does not survive that step. librsvg drops the text inside

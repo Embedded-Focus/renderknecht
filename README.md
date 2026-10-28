@@ -107,7 +107,7 @@ does not match.
 | apt packages | one snapshot date | `SNAPSHOT_DATE` |
 | graphviz, librsvg, texlive, python3 | exact versions | version suffix on each package |
 | uv | 0.13.6 | `UV_VERSION`, `UV_SHA256` |
-| pandoc | 3.13 | `PANDOC_VERSION`, `PANDOC_SHA256` |
+| pandoc | 3.12.1 | `PANDOC_VERSION`, `PANDOC_SHA256` |
 | pandoc-crossref | 0.3.26 | `PANDOC_CROSSREF_VERSION`, `PANDOC_CROSSREF_SHA256` |
 | Eisvogel template | 3.5.1 | `EISVOGEL_VERSION`, `EISVOGEL_SHA256` |
 | Node.js | 26.12.1 | `NODE_VERSION`, `NODE_SHA256` |
@@ -119,10 +119,12 @@ PDFs. To take in security updates for the apt packages, change `SNAPSHOT_DATE` a
 build. `uv sync --locked` also stops the build when `uv.lock` no longer matches
 `pyproject.toml`.
 
-pandoc-crossref is built for one pandoc version, so change it together with pandoc.
-The build renders one small document at the end. It does that through
-`render_markdown`, so preamble.yaml, the pandoc filters and the template all run. If
-they do not fit together, the build stops there.
+pandoc-crossref works with one pandoc version, so change the two versions together.
+When pandoc and the filter differ, the filter prints a warning and can write wrong
+figures and cross-references. The build compares the two versions after it installs
+the filter. It stops when they differ. The build renders one small document at the
+end. It does that through `render_markdown`, so preamble.yaml, the pandoc filters and
+the template all run. When they do not fit together, the build stops there.
 
 Eisvogel 3.5 loads the LaTeX packages `sourcesans` and `sourcecodepro` for the default
 look. Debian trixie has the older name `sourcesanspro` only, so the renderer defaults
@@ -176,6 +178,26 @@ graph TD
   push(commit) --> ci(build)
 ```
 `````
+
+renderknecht puts the text behind the pipe into the attribute block that follows the
+image. Write one attribute there, for example `height=90%`. Do not add braces around
+it. When your text already starts with `{`, renderknecht passes it through unchanged.
+
+Pandoc-crossref numbers the figures and lets the text refer to them. Turn the filter
+on with `pandoc-options: [crossref]` and write a `fig:` identifier in the same slot:
+
+`````markdown
+```mermaid [Deployment| #fig:deploy]
+graph TD
+  push(commit) --> ci(build)
+```
+`````
+
+`@fig:deploy` in the text then gives `fig. 1`. A size attribute and the label go
+together, for example `| width=100% #fig:deploy`. Pandoc-crossref gives only the
+number. LaTeX writes the word in front of it. That word is `Figure` until the document
+sets `\renewcommand{\figurename}{Abbildung}` in `header-includes`. Tables and sections
+work in the same way with `tbl:` and `sec:`.
 
 | Tool | Renderer | Output | Works with renderknecht-wrapper? |
 |------|----------|--------|--------------------------------------|

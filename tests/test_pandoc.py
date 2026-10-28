@@ -197,6 +197,48 @@ digraph "the holy hand grenade" { rankdir=LR; 1 -> 2 -> 3 -> lob }
     )
 
 
+def test_embed_diagrams_figure_label_reaches_pandoc_as_one_attribute_block() -> None:
+    """Keep `#fig:x` usable, with and without the braces of the author.
+
+    pandoc-crossref gives a number to an image whose identifier starts with `fig:`.
+    Pandoc reads one level of braces. `{ {#fig:x} }` is then text and not an
+    attribute, so the braces stay on the page and every `@fig:x` prints `??`. This
+    happens when renderknecht adds braces that the author already wrote.
+    """
+    tmp_files: pandoc.TemporaryFiles = []
+    written_as_block = pandoc.embed_diagrams(
+        """Hello,
+```graphviz [A figure|{#fig:x}]
+digraph "the holy hand grenade" { rankdir=LR; 1 -> 2 }
+```
+""",
+        tmp_files,
+    )
+    written_as_pairs = pandoc.embed_diagrams(
+        """Hello,
+```graphviz [A figure|#fig:x]
+digraph "the holy hand grenade" { rankdir=LR; 1 -> 2 }
+```
+""",
+        tmp_files,
+    )
+
+    assert (
+        written_as_block
+        == f"""Hello,
+
+![A figure]({tmp_files[0].name}){{#fig:x}}
+"""
+    )
+    assert (
+        written_as_pairs
+        == f"""Hello,
+
+![A figure]({tmp_files[1].name}){{ #fig:x }}
+"""
+    )
+
+
 @patch("renderknecht.renderers.pandoc.httpx.get")
 def test_embed_plantuml(get: MagicMock) -> None:
     tmp_files: pandoc.TemporaryFiles = []
