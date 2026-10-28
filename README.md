@@ -92,6 +92,33 @@ titlepage-logo: logo.pdf
 
 Authors listed in `authors.yaml` are expanded to their full display names automatically.
 
+## Pinned versions
+
+`Dockerfile.renderknecht` fixes every part of the toolchain. The base image is
+Debian trixie at an image digest, and all apt packages come from one Debian
+snapshot date. Each download carries a version and a SHA-256 checksum. The build
+checks the checksum before it installs the download, and it stops when a checksum
+does not match.
+
+| Part | Pin | How |
+|------|-----|-----|
+| Base image | `debian:trixie-slim` | image digest in the `FROM` line |
+| apt packages | one snapshot date | `SNAPSHOT_DATE` |
+| graphviz, librsvg, texlive, python3 | exact versions | version suffix on each package |
+| uv | 0.13.6 | `UV_VERSION`, `UV_SHA256` |
+| pandoc | 3.13 | `PANDOC_VERSION`, `PANDOC_SHA256` |
+| pandoc-crossref | 0.3.26 | `PANDOC_CROSSREF_VERSION`, `PANDOC_CROSSREF_SHA256` |
+| Eisvogel template | 3.5.1 | `EISVOGEL_VERSION`, `EISVOGEL_SHA256` |
+
+To change one part, edit only its version and checksum, then build and check a few
+PDFs. To take in security updates for the apt packages, change `SNAPSHOT_DATE` and
+build. `uv sync --locked` also stops the build when `uv.lock` no longer matches
+`pyproject.toml`.
+
+pandoc-crossref is built for one pandoc version, so change it together with pandoc.
+The build renders one small document at the end. If pandoc, LaTeX or the template do
+not fit together, the build stops there.
+
 ## Container stack (HedgeDoc + renderknecht)
 
 ```sh

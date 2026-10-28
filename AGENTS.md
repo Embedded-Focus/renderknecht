@@ -67,6 +67,24 @@ Resource override priority (highest to lowest):
 - `$XDG_CONFIG_HOME/renderknecht/<file>` (auto-mounted by wrapper)
 - Bundled defaults in `src/renderknecht/resources/`
 
+## Supply chain
+
+The image build pins every part of the toolchain. See the `Pinned versions` section
+in README.md and the `ARG` block at the top of `Dockerfile.renderknecht`.
+
+- The base image is `debian:trixie-slim` at an image digest.
+- apt packages come from one Debian snapshot, not from `unstable`. A mixed apt pool
+  is what made texlive configuration fail during the build.
+- Each download is checked against a SHA-256 checksum before it is installed.
+- `uv sync --locked` fails the build when `uv.lock` is stale.
+- The build renders one small PDF at the end. If that render fails, the build fails.
+
+When you bump a version, change one version at a time. Then run a few renders and
+compare the PDFs. pandoc-crossref is built for one pandoc version, so its version
+changes together with pandoc. Mermaid support is not in the image, so Node.js,
+mermaid-cli and the Chromium libraries are absent. When Mermaid support returns,
+those parts come back with it.
+
 ## Testing Patterns
 
 - Naming: test files `test_<feature>.py`, test functions `test_<action>_<expected_outcome>`.
