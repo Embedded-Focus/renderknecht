@@ -4,7 +4,7 @@ FROM debian:trixie-slim@sha256:89c1ea91e897f0fe0a3731595330bc45b8bdef4047464a071
 
 LABEL org.opencontainers.image.authors="Rainer Poisel <rainer@honeytreelabs.com>"
 
-# Versions and checksums. Bump one at a time, then run a few renders to check
+# Versions and checksums. Bump one at a time, then run a few renders and make sure
 # that the PDF output still looks right.
 ARG SNAPSHOT_DATE=20261020T213255Z
 ARG UV_VERSION=0.13.6
@@ -17,6 +17,12 @@ ARG PANDOC_CROSSREF_VERSION=v0.3.26
 ARG PANDOC_CROSSREF_SHA256=83d09646629234dfcd3d267e28184f46b9d468e98508efb3542b014634bfe999
 ARG EISVOGEL_VERSION=3.5.1
 ARG EISVOGEL_SHA256=321ff753b4017e331575651bf97ba51004650762fe116be97a4c60a68c570181
+ARG NODE_VERSION=v26.12.1
+ARG NODE_SHA256=6170b2d474e1c626f43cff3adc118df9fe3b573258a4fc3d850c8dbc6b079bbd
+# mermaid-cli 12.0.0 is the newest CLI release. It needs mermaid ^12.0.0, so this
+# build installs mermaid 12.2.0 as well. A test makes sure that mmdc loads that copy.
+ARG MERMAID_CLI_VERSION=12.0.0
+ARG MERMAID_VERSION=12.2.0
 
 ENV DEBIAN_FRONTEND=noninteractive
 # The Python interpreter comes from Debian. uv must not download another one.
@@ -28,9 +34,13 @@ ENV UV_PYTHON_DOWNLOADS=never
 # pocket is not part of this line.
 #
 # Packages that decide what the PDF looks like carry a version suffix. If apt
-# cannot find such a version, the build stops. Otherwise the build would quietly
-# use a different toolchain. The packages without a suffix only need to exist, so
-# they carry no version.
+# cannot find such a version, the build stops. Otherwise the build silently uses a
+# different toolchain. The packages without a suffix only need to exist, so they
+# carry no version.
+#
+# The names that start with lib and carry no version are libraries. The Chrome
+# headless shell needs them to start. The list comes from ldd on that binary. Node.js
+# needs libstdc++6, which is in that group too.
 RUN printf 'deb http://snapshot.debian.org/archive/debian/%s trixie main\n' "${SNAPSHOT_DATE}" \
         > /etc/apt/sources.list \
     && echo 'Acquire::Check-Valid-Until "false";' > /etc/apt/apt.conf.d/99snapshot \
@@ -39,8 +49,29 @@ RUN printf 'deb http://snapshot.debian.org/archive/debian/%s trixie main\n' "${S
         bind9-dnsutils \
         ca-certificates \
         curl \
+        fontconfig \
+        fonts-liberation \
         graphviz=2.42.4-3 \
+        libasound2t64 \
+        libatk-bridge2.0-0t64 \
+        libatk1.0-0t64 \
+        libatspi2.0-0t64 \
+        libdbus-1-3 \
+        libgbm1 \
+        libglib2.0-0 \
         librsvg2-bin=2.60.0+dfsg-1 \
+        libnspr4 \
+        libnss3 \
+        libstdc++6 \
+        libudev1 \
+        libx11-6 \
+        libxcomposite1 \
+        libxcb1 \
+        libxdamage1 \
+        libxext6 \
+        libxfixes3 \
+        libxkbcommon0 \
+        libxrandr2 \
         python3=3.13.5-1 \
         python3-venv \
         texlive-fonts-extra=2024.20250309-2 \
@@ -62,8 +93,8 @@ RUN wget -q -O /tmp/uv.tar.gz \
     && rm -rf /tmp/uv.tar.gz /tmp/uv-x86_64-unknown-linux-gnu \
     && uv --version
 
-# pandoc is the converter. The tarball is used instead of the Debian package,
-# because the Debian package is older and needs extra libraries.
+# pandoc is the converter. We use the tarball instead of the Debian package, because
+# the Debian package is older and needs extra libraries.
 RUN wget -q -O /tmp/pandoc.tar.gz \
         "https://github.com/jgm/pandoc/releases/download/${PANDOC_VERSION}/pandoc-${PANDOC_VERSION}-linux-amd64.tar.gz" \
     && echo "${PANDOC_SHA256}  /tmp/pandoc.tar.gz" | sha256sum --check \
@@ -76,6 +107,51 @@ RUN wget -q -O /tmp/pandoc-crossref.tar.xz \
     && echo "${PANDOC_CROSSREF_SHA256}  /tmp/pandoc-crossref.tar.xz" | sha256sum --check \
     && tar xJf /tmp/pandoc-crossref.tar.xz -C /usr/local/bin pandoc-crossref \
     && rm /tmp/pandoc-crossref.tar.xz
+
+# Node.js brings npm, which installs mermaid-cli. Debian has no Node.js 26 package, and
+# mermaid-cli needs Node.js 22.13 or newer. The tarball is for amd64 only, like pandoc
+# above.
+RUN wget -q -O /tmp/node.tar.xz "https://nodejs.org/dist/${NODE_VERSION}/node-${NODE_VERSION}-linux-x64.tar.xz" \
+    && echo "${NODE_SHA256}  /tmp/node.tar.xz" | sha256sum --check \
+    && tar xJf /tmp/node.tar.xz --strip-components=1 -C /usr/local \
+    && rm /tmp/node.tar.xz \
+    && node --version \
+    && npm --version
+
+# mermaid-cli renders a Mermaid diagram with Chromium and writes a PDF. We do not
+# use SVG, because librsvg cannot convert Mermaid SVG. See renderers/pandoc.py.
+#
+# mermaid-cli asks for mermaid ^12.0.0. This step asks for mermaid 12.2.0 as well, so
+# npm installs that version at the global root. If npm puts another copy under
+# mermaid-cli, the build stops. mmdc loads that copy instead of the pinned one.
+#
+# Chrome comes from the puppeteer version inside mermaid-cli, so that version sets the
+# Chrome build. mermaid-cli starts the Chrome headless shell, so only that build is
+# here. The build deletes old revisions, because each one costs about 300 MB.
+RUN PUPPETEER_SKIP_DOWNLOAD=1 npm install --global --no-audit --no-fund \
+        "@mermaid-js/mermaid-cli@${MERMAID_CLI_VERSION}" "mermaid@${MERMAID_VERSION}" \
+    && test ! -e /usr/local/lib/node_modules/@mermaid-js/mermaid-cli/node_modules/mermaid \
+    && node --eval \
+        "console.log('mermaid', require('/usr/local/lib/node_modules/mermaid/package.json').version)" \
+    && puppeteer_bin=/usr/local/lib/node_modules/@mermaid-js/mermaid-cli/node_modules/.bin/puppeteer \
+    && "$puppeteer_bin" browsers install chrome-headless-shell \
+    && ls -d /root/.cache/puppeteer/chrome-headless-shell/* 2>/dev/null | sort -V | head -n -1 \
+            | xargs --no-run-if-empty rm -rf \
+    && mmdc --version
+
+# Chromium must run without its sandbox, because it runs as root in the container.
+RUN mkdir -p /etc/renderknecht \
+    && printf '{"args": ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"]}\n' \
+        > /etc/renderknecht/puppeteer.json
+
+# One Mermaid render at build time. If mmdc cannot render it, the build stops. A broken
+# browser otherwise fails on the first real document. The second test shows that Chrome
+# put a font in the PDF. Chrome draws no text when it finds no font, so a diagram
+# without text can pass the first test. This test is a hint, not a proof.
+RUN printf 'graph TD\n  A-->B\n' > /tmp/mermaid-smoke.mmd \
+    && mmdc -i /tmp/mermaid-smoke.mmd -o /tmp/mermaid-smoke.pdf -p /etc/renderknecht/puppeteer.json \
+    && grep -q '%PDF-' /tmp/mermaid-smoke.pdf && grep -q '/Font' /tmp/mermaid-smoke.pdf \
+    && test -s /tmp/mermaid-smoke.pdf && rm -f /tmp/mermaid-smoke.mmd /tmp/mermaid-smoke.pdf
 
 ARG PANDOC_DIR=/.pandoc
 ARG TEMPLATES_DIR=${PANDOC_DIR}/templates
@@ -107,15 +183,14 @@ RUN uv sync --locked
 
 ENV PATH=${PANDOC_DIR}/.venv/bin:${PATH}
 
-# One render at build time. pandoc, LaTeX and the template all run here. If the
-# render fails, the build stops. That is better than the first real document
-# failing days later. The check also runs pandoc-crossref, because that filter is
-# built for one pandoc version and breaks when the two do not fit. The check does
-# not run every pandoc option. For the full list see util/pandoc_wrapper.py.
-RUN printf '# Smoke test\n\nA formula: $E=mc^2$\n\n```python\nprint("ok")\n```\n' > /tmp/smoke.md \
-    && pandoc /tmp/smoke.md --output /tmp/smoke.pdf --standalone \
-        --from markdown --template eisvogel --syntax-highlighting=idiomatic \
-        --filter pandoc-crossref \
+# One render at build time through the same code path that a real document uses. The
+# test uses preamble.yaml, the pandoc filters and the template. The front matter turns
+# on pandoc-crossref, so that filter runs too. If the render fails, the build stops.
+# The test finds the fault in the image build, not in the first real document. See
+# renderers/pandoc.py and util/pandoc_wrapper.py.
+RUN printf -- '---\npandoc-options: [crossref]\n---\n\n# One {#sec:one}\n\nA formula: $E=mc^2$\n\n```python\nprint("ok")\n```\n\nSee @sec:one.\n' \
+        > /tmp/smoke.md \
+    && python -c "from pathlib import Path; from renderknecht.renderers import pandoc; tmp = []; Path('/tmp/smoke.pdf').write_bytes(pandoc.render_markdown(Path('/tmp/smoke.md').read_text(), tmp))" \
     && grep -q '%PDF-' /tmp/smoke.pdf && rm -f /tmp/smoke.md /tmp/smoke.pdf
 
 COPY entrypoint.sh /usr/local/bin/entrypoint

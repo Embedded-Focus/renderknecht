@@ -1,5 +1,8 @@
+import dataclasses
 import datetime
 import os
+import subprocess
+import tempfile
 from collections.abc import Iterator
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -169,6 +172,122 @@ def test_embed_plantuml_with_formatting(get: MagicMock) -> None:
 ![qwer]({tmp_files[0].name}){{ height=90% }}
 """
     )
+
+
+def _fake_mmdc(run: MagicMock) -> None:
+    """Act like mmdc and write a PDF to the path after `-o`."""
+
+    def write_pdf(command: list[str], **kwargs: object) -> MagicMock:
+        Path(command[command.index("-o") + 1]).write_bytes(b"%PDF-1.7 fake diagram")
+        return MagicMock(returncode=0, stdout=b"", stderr=b"")
+
+    run.side_effect = write_pdf
+
+
+@patch("renderknecht.renderers.pandoc.subprocess.run")
+def test_embed_mermaid(run: MagicMock) -> None:
+    tmp_files: pandoc.TemporaryFiles = []
+    _fake_mmdc(run)
+
+    result = pandoc.embed_diagrams(
+        """Hello,
+```mermaid
+graph TD
+  A[Start] --> B{Is it good?}
+```
+""",
+        tmp_files,
+    )
+
+    assert (
+        result
+        == f"""Hello,
+
+![]({tmp_files[0].name})
+"""
+    )
+    assert tmp_files[0].name.endswith(".pdf")
+
+
+@patch("renderknecht.renderers.pandoc.subprocess.run")
+def test_embed_mermaid_caption_and_formatting(run: MagicMock) -> None:
+    tmp_files: pandoc.TemporaryFiles = []
+    _fake_mmdc(run)
+
+    result = pandoc.embed_diagrams(
+        """Hello,
+```mermaid [qwer|height=90%]
+graph TD
+  A-->B
+```
+""",
+        tmp_files,
+    )
+
+    assert (
+        result
+        == f"""Hello,
+
+![qwer]({tmp_files[0].name}){{ height=90% }}
+"""
+    )
+
+
+@patch("renderknecht.renderers.pandoc.subprocess.run")
+def test_render_mermaid_passes_puppeteer_config(run: MagicMock) -> None:
+    """renderknecht passes the no-sandbox puppeteer configuration from the image to mmdc."""
+    config = Path(tempfile.gettempdir()) / "renderknecht-test-puppeteer.json"
+    config.write_text("{}")
+    os.environ["MERMAID_PUPPETEER_CONFIG"] = str(config)
+    _fake_mmdc(run)
+
+    assert pandoc.render_mermaid("graph TD\n  A-->B\n").startswith(b"%PDF-")
+
+    command = run.call_args.args[0]
+    assert command[command.index("-p") + 1] == str(config)
+
+
+@patch("renderknecht.renderers.pandoc.subprocess.run")
+def test_render_mermaid_without_puppeteer_config(run: MagicMock) -> None:
+    """Outside the container, renderknecht runs mmdc with mmdc's own sandbox defaults."""
+    os.environ["MERMAID_PUPPETEER_CONFIG"] = "/does/not/exist.json"
+    _fake_mmdc(run)
+
+    assert pandoc.render_mermaid("graph TD\n  A-->B\n").startswith(b"%PDF-")
+    assert "-p" not in run.call_args.args[0]
+
+
+@patch("renderknecht.renderers.pandoc.subprocess.run")
+def test_render_mermaid_raises_on_invalid_syntax(run: MagicMock) -> None:
+    run.return_value = MagicMock(returncode=1, stdout=b"", stderr=b"Parse error on line 2")
+
+    with pytest.raises(subprocess.CalledProcessError):
+        pandoc.render_mermaid("graph TD\n  A--\n")
+
+
+@pytest.mark.parametrize("tool", sorted(pandoc.TOOLS))
+def test_embed_diagrams_handles_every_registered_tool(tool: str) -> None:
+    """The fence regex matches every registered tool, and each tool uses its own suffix."""
+    suffix = pandoc.TOOLS[tool].suffix
+    rendered: MagicMock = MagicMock(return_value=b"rendered")
+    tmp_files: pandoc.TemporaryFiles = []
+
+    with patch.dict(pandoc.TOOLS, {tool: dataclasses.replace(pandoc.TOOLS[tool], render=rendered)}):
+        markdown = pandoc.embed_diagrams(f"Hello,\n```{tool}\nmarkup\n```\n", tmp_files)
+
+    assert "markup" not in markdown
+    assert f"![]({tmp_files[0].name})" in markdown
+    assert tmp_files[0].name.endswith(suffix)
+    rendered.assert_called_once_with("markup\n")
+
+
+def test_embed_diagrams_leaves_unknown_language_alone() -> None:
+    """A fence language that TOOLS does not name stays in the document."""
+    tmp_files: pandoc.TemporaryFiles = []
+    markdown = "```kangaroos\nnot a diagram\n```\n"
+
+    assert pandoc.embed_diagrams(markdown, tmp_files) == markdown
+    assert not tmp_files
 
 
 def test_extract_yaml_metadata() -> None:

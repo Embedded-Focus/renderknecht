@@ -20,6 +20,7 @@
 **[Quick Start](#quick-start)** ·
 **[Per-user Resources](#per-user-resources)** ·
 **[Markdown Front Matter](#markdown-front-matter)** ·
+**[Diagrams](#diagrams)** ·
 **[Container Stack](#container-stack-hedgedoc--renderknecht)** ·
 **[Resource Overrides](#advanced-resource-overrides)**
 
@@ -28,8 +29,8 @@
 Renders Markdown files into beautiful PDFs via [pandoc](https://pandoc.org/) and the
 [eisvogel](https://github.com/Wandmalfarbe/pandoc-latex-template) LaTeX template.
 
-All tooling (pandoc, LaTeX, graphviz) runs inside a container — nothing to install locally
-beyond podman.
+All tooling (pandoc, LaTeX, graphviz, and Chromium for Mermaid) runs inside a
+container. You need nothing on your machine beyond podman.
 
 ## Quick start
 
@@ -109,6 +110,9 @@ does not match.
 | pandoc | 3.13 | `PANDOC_VERSION`, `PANDOC_SHA256` |
 | pandoc-crossref | 0.3.26 | `PANDOC_CROSSREF_VERSION`, `PANDOC_CROSSREF_SHA256` |
 | Eisvogel template | 3.5.1 | `EISVOGEL_VERSION`, `EISVOGEL_SHA256` |
+| Node.js | 26.12.1 | `NODE_VERSION`, `NODE_SHA256` |
+| mermaid-cli | 12.0.0 | `MERMAID_CLI_VERSION` |
+| mermaid | 12.2.0 | `MERMAID_VERSION` |
 
 To change one part, edit only its version and checksum, then build and check a few
 PDFs. To take in security updates for the apt packages, change `SNAPSHOT_DATE` and
@@ -116,8 +120,66 @@ build. `uv sync --locked` also stops the build when `uv.lock` no longer matches
 `pyproject.toml`.
 
 pandoc-crossref is built for one pandoc version, so change it together with pandoc.
-The build renders one small document at the end. If pandoc, LaTeX or the template do
-not fit together, the build stops there.
+The build renders one small document at the end. It does that through
+`render_markdown`, so preamble.yaml, the pandoc filters and the template all run. If
+they do not fit together, the build stops there.
+
+The newest mermaid-cli release is 12.0.0. It asks for `mermaid ^12.0.0`, so the image
+installs mermaid 12.2.0 next to it. A test makes sure that `mmdc` loads that copy. The
+npm packages carry no checksum in the Dockerfile, and npm picks the newest build of each
+one. npm makes sure that each package it downloads is intact. The set of npm packages is
+still not fixed.
+
+The Chrome build that `mmdc` starts comes from the puppeteer version inside
+mermaid-cli, so the mermaid-cli version sets it. The build renders one Mermaid
+diagram, so a broken browser stops the build.
+
+## Diagrams
+
+A fenced code block in `graphviz`, `plantuml` or `mermaid` produces a diagram in the PDF.
+Renderknecht renders the block instead of printing it as code:
+
+`````markdown
+```graphviz [The holy hand grenade]
+digraph { rankdir=LR; 1 -> 2 -> 3 -> lob }
+```
+
+```plantuml [Login flow]
+@startuml
+Alice -> Bob: Authentication Request
+Bob --> Alice: Authentication Response
+@enduml
+```
+
+```mermaid [Deployment]
+graph TD
+  push(commit) --> ci(build)
+  ci --> registry(push)
+```
+`````
+
+Write a caption in square brackets after the tool name. Add a LaTeX image attribute
+after the caption, behind a pipe character, for example `|height=90%`:
+
+`````markdown
+```mermaid [Deployment|height=90%]
+graph TD
+  push(commit) --> ci(build)
+```
+`````
+
+| Tool | Renderer | Output | Works with renderknecht-wrapper? |
+|------|----------|--------|--------------------------------------|
+| `graphviz` | `dot` from the graphviz package | SVG | yes |
+| `plantuml` | the `plantuml` service in `compose.yaml` | SVG | no |
+| `mermaid` | `mmdc` with Chromium | PDF | yes |
+
+When you render with `renderknecht-wrapper`, the `plantuml` service does not answer.
+That service only exists inside the compose network.
+
+A Mermaid label must be plain text. HTML inside a label, for example `<b>bold</b>`, does
+not work. Mermaid renders to a PDF and not to an SVG, because librsvg cannot convert
+Mermaid SVG. `renderers/pandoc.py` gives the reason.
 
 ## Container stack (HedgeDoc + renderknecht)
 
@@ -143,6 +205,8 @@ The wrapper exposes the same override mechanism as the container directly:
 | `RESOURCES_DIR=/path` | Mount an arbitrary directory; overrides XDG |
 | `PREAMBLE_YAML=/path` | Override just the preamble (highest priority) |
 | `AUTHORS_YAML=/path` | Override just the authors map (highest priority) |
+| `MERMAID_ARGS` | Extra arguments for `mmdc`, for example to change the page fit. You can use this inside the container only |
+| `MERMAID_PUPPETEER_CONFIG` | Path to a different puppeteer configuration file. You can use this inside the container only |
 
 ```sh
 podman run --rm -i \

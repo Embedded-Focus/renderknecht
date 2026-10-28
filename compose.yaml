@@ -35,6 +35,7 @@ services:
   # do not change the plantuml service name as it is hard-wired
   # into renderknecht; this way, we don't have to implement
   # any service discovery
+  # mermaid needs no service here. mmdc runs inside the renderknecht image.
   plantuml:
     image: plantuml/plantuml-server:jetty-v1.2025.0
     restart: always

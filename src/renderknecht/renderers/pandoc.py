@@ -5,10 +5,12 @@ import importlib.resources
 import logging
 import os
 import re
+import shlex
 import string
 import subprocess
 import tempfile
 from collections.abc import Callable
+from dataclasses import dataclass
 from io import FileIO
 from pathlib import Path
 from zlib import compress
@@ -100,29 +102,113 @@ def render_plantuml(markup: str) -> str:
     return response.text
 
 
-Renderer = Callable[[str], str]
-TOOLS: dict[str, Renderer] = {
-    "graphviz": render_graphviz,
-    "plantuml": render_plantuml,
+#: Path of the puppeteer configuration file. The image build creates this file.
+#: It tells Chromium to run without its sandbox.
+MERMAID_PUPPETEER_CONFIG = "/etc/renderknecht/puppeteer.json"
+
+
+def render_mermaid(markup: str) -> bytes:
+    """Render a Mermaid block to a PDF with the mmdc command.
+
+    pandoc converts SVG to PDF with librsvg, which is the same SVG converter it
+    uses for GraphViz and PlantUML. Mermaid SVG does not survive that step.
+    librsvg drops the text inside ``<foreignObject>`` elements, which carry
+    Mermaid labels by default. It drops text inside a group that holds a CSS
+    ``filter`` or ``opacity`` declaration. It also drops the spaces between the
+    per-word ``<tspan>`` elements that Mermaid writes. The diagram shapes stay, so
+    the page looks nearly right without the text.
+
+    mmdc renders with Chromium instead, so the PDF matches what a browser shows.
+    This holds for every Mermaid diagram type.
+
+    :param markup: Mermaid source code.
+    :returns: The diagram as PDF bytes.
+    :raises FileNotFoundError: if ``mmdc`` is not on PATH.
+    :raises subprocess.CalledProcessError: if mmdc rejects the input, for example
+        on invalid Mermaid syntax.
+    """
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        source = Path(tmp_dir) / "diagram.mmd"
+        target = Path(tmp_dir) / "diagram.pdf"
+        source.write_text(markup, encoding="utf-8")
+
+        command = ["mmdc", "-i", str(source), "-o", str(target), "--quiet"]
+        if puppeteer_config := _puppeteer_config():
+            command += ["-p", str(puppeteer_config)]
+        command += shlex.split(os.environ.get("MERMAID_ARGS", ""))
+
+        process = subprocess.run(command, capture_output=True)  # noqa: S603
+        if process.returncode != 0:
+            logging.error(
+                "mmdc failed to render Mermaid: %s", process.stderr.decode(errors="replace").strip()
+            )
+            raise subprocess.CalledProcessError(process.returncode, command, process.stdout, process.stderr)
+        return target.read_bytes()
+
+
+def _puppeteer_config() -> Path | None:
+    """Return the puppeteer configuration file to pass to mmdc, or None.
+
+    The image ships a configuration file that turns off the Chromium sandbox.
+    Chromium needs this, because it runs as root inside the container. That path
+    usually does not exist outside the container. A developer who runs the CLI on
+    their own machine is one example. mmdc then uses its own sandboxed defaults.
+
+    :returns: Path to a puppeteer configuration file, or None to let mmdc use its
+        own defaults.
+    """
+    candidate = Path(os.environ.get("MERMAID_PUPPETEER_CONFIG", MERMAID_PUPPETEER_CONFIG))
+    return candidate if candidate.is_file() else None
+
+
+Renderer = Callable[[str], str | bytes]
+
+
+@dataclass(frozen=True)
+class Tool:
+    """A diagram tool together with the file extension of its output."""
+
+    render: Renderer
+    suffix: str
+
+
+TOOLS: dict[str, Tool] = {
+    "graphviz": Tool(render_graphviz, ".svg"),
+    "mermaid": Tool(render_mermaid, ".pdf"),
+    "plantuml": Tool(render_plantuml, ".svg"),
 }
 
 TemporaryFiles = list[FileIO]
 
 
 def embed_diagrams(markdown: str, tmp_files: TemporaryFiles) -> str:
+    """Replace diagram code blocks with references to the rendered diagrams.
+
+    renderknecht renders each block that :data:`TOOLS` names into a temporary
+    file, then replaces the block with a Markdown image. Pandoc embeds the
+    diagram instead of printing the markup. The fence languages come from
+    :data:`TOOLS`, so you add a tool in one place.
+
+    :param markdown: Markdown to process.
+    :param tmp_files: List that collects the temporary files for later cleanup.
+    :returns: Markdown with diagram blocks replaced by image references.
+    """
+    fence = "|".join(sorted(TOOLS))
+
     def replace(match: re.Match) -> str:
-        tool = match.group(1)
+        tool = TOOLS[match.group(1)]
         block_content = match.group(6)
         caption = match.group(3) if match.group(3) else ""
         formatting = f"{{ {match.group(5)} }}" if match.group(5) else ""
-        with tempfile.NamedTemporaryFile(delete=False, mode="w", suffix=".svg") as tmp_file:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=tool.suffix) as tmp_file:
             tmp_files.append(tmp_file)  # type: ignore
-            tmp_file.write(TOOLS[tool](block_content))
+            rendered = tool.render(block_content)
+            tmp_file.write(rendered if isinstance(rendered, bytes) else rendered.encode())
             return f"""
 ![{caption}]({tmp_file.name}){formatting}"""
 
     return re.sub(
-        r"```\s*(graphviz|plantuml)(\s+\[(.*?)(\|(.*?))?\])?\n(.*?)```",
+        rf"```\s*({fence})(\s+\[(.*?)(\|(.*?))?\])?\n(.*?)```",
         replace,
         markdown,
         flags=re.DOTALL,
