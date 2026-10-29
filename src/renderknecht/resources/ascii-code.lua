@@ -29,6 +29,7 @@ local MAP = {
   [0x00B7] = ".", -- middle dot
   [0x2192] = "->", -- rightwards arrow
   [0x2248] = "~", -- almost equal to
+  [0x00D7] = "x", -- multiplication sign
 }
 
 --- Replace the mapped characters in `text`.

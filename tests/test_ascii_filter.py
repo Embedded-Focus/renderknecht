@@ -56,6 +56,18 @@ def test_render_inline_code_with_ellipsis_is_ascii() -> None:
 
 
 @pandoc
+def test_render_inline_code_with_multiplication_sign_is_ascii() -> None:
+    """Regression test for a crash. pdfTeX cannot read the multiplication
+    sign (×) inside \\lstinline, so the run stopped and gave no PDF. The
+    filter changes this sign to a plain x now, so this crash cannot happen
+    again."""
+    result = _run_pandoc("text × outside\n\n`A × E`\n", "plain")
+    stdout = result.stdout.decode()
+    assert "A x E" in stdout
+    assert "text × outside" in stdout
+
+
+@pandoc
 def test_render_code_block_for_lstlisting_writer_stays_ascii() -> None:
     """Regression test for a crash. A code block sent bytes that pdfTeX
     cannot read, so the run stopped and gave no PDF. The filter changes every
