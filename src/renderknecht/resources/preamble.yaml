@@ -27,6 +27,81 @@ header-includes:
   \newtcolorbox{warning-box}{colback=orange!5!white,arc=0pt,outer arc=0pt,colframe=orange!80!black}
   \newtcolorbox{error-box}{colback=red!5!white,arc=0pt,outer arc=0pt,colframe=red!75!black}
   ```
+# `landscapepage` puts a wide table on its own landscape sheet. A document
+# marks it with `::: landscapepage` and needs nothing else. The driver wraps
+# the definition in a check. If the definition already exists, the driver
+# skips it. A preamble file often already carries the definition, so this
+# is the normal case. Two definitions in one build stop it with an error.
+#
+# `pdflscape` rotates the sheet for the viewer. It never touches the head
+# and foot that `scrlayer-scrpage` draws for Eisvogel. That head and foot
+# stay in portrait layer geometry, so they turn sideways with the rest of
+# the page.
+#
+# `\pagestyle{empty}` turns off this head and foot. `\@oddhead` and
+# `\@oddfoot` then draw a replacement. LaTeX draws this replacement once per
+# page, the same way it draws the original head and foot. This also covers
+# tables that run across several landscape sheets. With `eso-pic`, a
+# `\AddToShipoutPictureBG` background drops off the last page of a
+# multi-page `landscape` block instead. This is a real conflict between
+# `eso-pic` and `pdflscape`, not a timing bug worth working around.
+#
+# The replacement uses TikZ absolute page coordinates and `\rotatebox{90}`
+# for position. It matches title, date, author, and page number to what
+# Eisvogel shows on a portrait page, with the same head and foot rule.
+#
+# `lscape` places the body box starting at `1in+\oddsidemargin` from the
+# physical edge, the same offset, about 2.5cm, where the head bar above
+# sits. The body box also extends close to where the foot bar sits.
+# Shrinking only `\textheight` moves the far end away from the foot but
+# leaves the start exactly where the head is. A test with a table long
+# enough to fill a sheet showed this problem. The foot had a real gap. The
+# head had only a small, incidental gap, by luck and not by design.
+#
+# `\oddsidemargin` is pushed out by 2cm to move the start away from the
+# head. `\textheight` (with the `\@colht`/`\@colroom`/`\vsize` copies
+# `landscape` makes of it) is shrunk by 4cm: 2cm for the same shift at the
+# start, and 2cm for the foot, as before.
+- |
+  ```{=latex}
+  \usepackage{tikz}
+  \makeatletter
+  \@ifundefined{landscapepage}{%
+  \newcommand{\landscapepage@head}{%
+  \begin{tikzpicture}[remember picture,overlay]
+  \node[rotate=90,anchor=south west,inner sep=0pt] at ([xshift=2.5cm,yshift=2.5cm]current page.south west)
+  {\hbox to \dimexpr\paperheight-5cm\relax{\normalfont\upshape\small \@title\hfil \@date}};
+  \node[rotate=90,anchor=south west,inner sep=0pt] at ([xshift=2.6cm,yshift=2.5cm]current page.south west)
+  {\hbox to \dimexpr\paperheight-5cm\relax{\leaders\hrule height 0.4pt\hfil}};
+  \end{tikzpicture}%
+  }%
+  \newcommand{\landscapepage@foot}{%
+  \begin{tikzpicture}[remember picture,overlay]
+  \node[rotate=90,anchor=north west,inner sep=0pt] at ([xshift=\dimexpr\paperwidth-2.6cm\relax,yshift=2.5cm]current page.south west)
+  {\hbox to \dimexpr\paperheight-5cm\relax{\leaders\hrule height 0.4pt\hfil}};
+  \node[rotate=90,anchor=north west,inner sep=0pt] at ([xshift=\dimexpr\paperwidth-2.5cm\relax,yshift=2.5cm]current page.south west)
+  {\hbox to \dimexpr\paperheight-5cm\relax{\normalfont\upshape\small \@author\hfil \thepage}};
+  \end{tikzpicture}%
+  }%
+  \newenvironment{landscapepage}{%
+  \clearpage
+  \pagestyle{empty}%
+  \blandscape
+  \addtolength{\oddsidemargin}{2cm}%
+  \addtolength{\textheight}{-4cm}%
+  \@colht=\textheight\relax
+  \@colroom=\textheight\relax
+  \vsize=\textheight\relax
+  \def\@oddhead{\landscapepage@head}%
+  \def\@oddfoot{\landscapepage@foot}%
+  }{%
+  \elandscape
+  \clearpage
+  \@ifundefined{ps@eisvogel-header-footer}{}{\pagestyle{eisvogel-header-footer}}%
+  }
+  }{}
+  \makeatother
+  ```
 # Eisvogel loads Source Code Pro only when no font family is set. We set one above,
 # so it does not. The driver adds the `sourcecodepro` include to header-includes on
 # every render. See CODE_FONT_INCLUDE in renderers/pandoc.py.
@@ -35,3 +110,4 @@ pandoc-latex-environment:
   info-box: [info]
   warning-box: [warning]
   error-box: [error]
+  landscapepage: [landscapepage]

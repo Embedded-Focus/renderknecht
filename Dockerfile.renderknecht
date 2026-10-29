@@ -79,6 +79,7 @@ RUN printf 'deb http://snapshot.debian.org/archive/debian/%s trixie main\n' "${S
         texlive-fonts-extra=2024.20250309-2 \
         texlive-lang-german=2024.20250309-1 \
         texlive-latex-base=2024.20250309-1 \
+        texlive-pictures=2024.20250309-1 \
         texlive-science=2024.20250309-2 \
         wget \
         xz-utils \

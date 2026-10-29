@@ -71,6 +71,112 @@ _CREATOR = (
 #: preamble file can lose the code font.
 CODE_FONT_INCLUDE = "```{=latex}\n\\usepackage{sourcecodepro}\n```\n"
 
+#: Landscape sheets for wide tables. A document asks for one with
+#: `::: landscapepage`, and this code answers that request.
+#:
+#: The definition belongs to the driver, for the same reason as the code
+#: font. A preamble loaded through `PREAMBLE_YAML`, `RESOURCES_DIR`, or
+#: `~/.config/renderknecht/preamble.yaml` can replace the bundled preamble
+#: file. A feature that this file drops is a feature a document loses
+#: without warning. The driver wraps the definition in a check. If the
+#: definition already exists, the driver skips it. A preamble file often
+#: already carries the definition, so this is the normal case. Two
+#: definitions in one build stop it with an error.
+#:
+#: `pdflscape` rotates the sheet for the viewer. It never touches the head
+#: and foot that `scrlayer-scrpage` draws for Eisvogel. That head and foot
+#: stay in portrait layer geometry, so they turn sideways with the rest of
+#: the page.
+#:
+#: `\pagestyle{empty}` turns off this head and foot. This page style is
+#: part of the LaTeX kernel, so it works with or without `scrlayer-scrpage`.
+#: `\@oddhead` and `\@oddfoot` then draw a replacement. LaTeX draws this
+#: replacement once per page, the same way it draws the original head and
+#: foot. This also covers tables that run across several landscape sheets.
+#:
+#: The replacement uses TikZ absolute page coordinates and `\rotatebox{90}`
+#: for position. It matches title, date, author, and page number to what
+#: Eisvogel shows on a portrait page, with the same head and foot rule.
+#:
+#: This method avoids a conflict between `eso-pic` and `pdflscape`. With
+#: `eso-pic`, a `\AddToShipoutPictureBG` background drops off the last page
+#: of a multi-page `landscape` block. `\@oddhead` and `\@oddfoot` do not
+#: have this problem. They are part of the LaTeX kernel's own per-page
+#: output routine, not a third-party shipout hook that can race with
+#: `pdflscape`'s own rotation code.
+#:
+#: `lscape` swaps `\textheight` for the portrait `\textwidth` to measure the
+#: landscape page. This places the start of the body box at
+#: `1in+\oddsidemargin` from the physical edge, the same offset, about
+#: 2.5cm, where the head bar above sits. The body box also extends close to
+#: where the foot bar sits.
+#:
+#: An earlier version of this code shrank only `\textheight`. This moved
+#: the far end of the body box away from the foot. It did not move the
+#: start, so the start stayed at the same point as the head. A test with a
+#: table long enough to fill a sheet showed this problem. The foot had a
+#: real gap. The head had only a small, incidental gap, by luck and not by
+#: design.
+#:
+#: The current code pushes `\oddsidemargin` out by 2cm. This moves the
+#: start of the body box away from the head. The code also shrinks
+#: `\textheight` by 4cm: 2cm for the same shift at the start, and 2cm for
+#: the foot, as before. `landscape` copies `\textheight` into `\@colht`,
+#: `\@colroom`, and `\vsize`, so the code sets these three to the same new
+#: value. A test confirmed the fix. Both ends of the body box now have the
+#: same comfortable gap.
+LANDSCAPE_INCLUDE = (
+    "```{=latex}\n"
+    "\\usepackage{pdflscape}\n"
+    "\\usepackage{tikz}\n"
+    "\\providecommand{\\blandscape}{\\begin{landscape}}\n"
+    "\\providecommand{\\elandscape}{\\end{landscape}}\n"
+    "\\makeatletter\n"
+    "\\@ifundefined{landscapepage}{%\n"
+    "\\newcommand{\\landscapepage@head}{%\n"
+    "\\begin{tikzpicture}[remember picture,overlay]\n"
+    "\\node[rotate=90,anchor=south west,inner sep=0pt] at "
+    "([xshift=2.5cm,yshift=2.5cm]current page.south west)\n"
+    "{\\hbox to \\dimexpr\\paperheight-5cm\\relax{\\normalfont\\upshape\\small \\@title\\hfil \\@date}};\n"
+    "\\node[rotate=90,anchor=south west,inner sep=0pt] at "
+    "([xshift=2.6cm,yshift=2.5cm]current page.south west)\n"
+    "{\\hbox to \\dimexpr\\paperheight-5cm\\relax{\\leaders\\hrule height 0.4pt\\hfil}};\n"
+    "\\end{tikzpicture}%\n"
+    "}%\n"
+    "\\newcommand{\\landscapepage@foot}{%\n"
+    "\\begin{tikzpicture}[remember picture,overlay]\n"
+    "\\node[rotate=90,anchor=north west,inner sep=0pt] at "
+    "([xshift=\\dimexpr\\paperwidth-2.6cm\\relax,yshift=2.5cm]current page.south west)\n"
+    "{\\hbox to \\dimexpr\\paperheight-5cm\\relax{\\leaders\\hrule height 0.4pt\\hfil}};\n"
+    "\\node[rotate=90,anchor=north west,inner sep=0pt] at "
+    "([xshift=\\dimexpr\\paperwidth-2.5cm\\relax,yshift=2.5cm]current page.south west)\n"
+    "{\\hbox to \\dimexpr\\paperheight-5cm\\relax{\\normalfont\\upshape\\small \\@author\\hfil \\thepage}};\n"
+    "\\end{tikzpicture}%\n"
+    "}%\n"
+    "\\newenvironment{landscapepage}{%\n"
+    "\\clearpage\n"
+    "\\pagestyle{empty}%\n"
+    "\\blandscape\n"
+    "\\addtolength{\\oddsidemargin}{2cm}%\n"
+    "\\addtolength{\\textheight}{-4cm}%\n"
+    "\\@colht=\\textheight\\relax\n"
+    "\\@colroom=\\textheight\\relax\n"
+    "\\vsize=\\textheight\\relax\n"
+    "\\def\\@oddhead{\\landscapepage@head}%\n"
+    "\\def\\@oddfoot{\\landscapepage@foot}%\n"
+    "}{%\n"
+    "\\elandscape\n"
+    "\\clearpage\n"
+    "\\@ifundefined{ps@eisvogel-header-footer}{}{\\pagestyle{eisvogel-header-footer}}%\n"
+    "}\n"
+    "}{}\n"
+    "\\makeatother\n"
+    "```\n"
+)
+
+#: The div class that binds a block to the landscape environment.
+LANDSCAPE_ENVIRONMENT = "landscapepage"
+
 #: The font family that keeps the look Eisvogel would bring with its default
 #: `sourcesans` package. That package is gone from Debian trixie, so trixie's
 #: equivalent `sourcesanspro` takes its place. The `default` option is needed,
@@ -96,6 +202,40 @@ def _as_include_list(value: object) -> list[str]:
     if isinstance(value, (list, tuple)):
         return [str(item) for item in value]
     return [str(value)]
+
+
+def _as_class_list(value: object) -> list[str]:
+    """Return one pandoc-latex-environment value as a list of div classes.
+
+    :param value: The classes bound to a LaTeX environment: None, a string, or
+        a sequence of strings.
+    :returns: The classes as a list of strings. None becomes an empty list.
+    """
+    return _as_include_list(value)
+
+
+def _merge_environments(preamble: object, document: object) -> dict[str, list[str]]:
+    """Combine the preamble's and the document's pandoc-latex-environment maps.
+
+    A plain ``**`` merge lets the document replace the whole map. A document
+    that adds one class then loses every class from the preamble, without
+    warning. Merging per environment keeps both maps. The code drops an exact
+    duplicate class. If it keeps the duplicate, the filter wraps the content
+    twice.
+
+    :param preamble: The map from the preamble file.
+    :param document: The map from the document's front matter.
+    :returns: The combined map, with the preamble's entries first.
+    """
+    combined: dict[str, list[str]] = {}
+    for source in (preamble, document):
+        if not isinstance(source, dict):
+            continue
+        for name, classes in source.items():
+            merged = combined.get(str(name), [])
+            merged.extend(_as_class_list(classes))
+            combined[str(name)] = list(dict.fromkeys(merged))
+    return combined
 
 
 def embed_images(markdown: str) -> str:
@@ -284,6 +424,7 @@ def augment_yaml_preamble(hedgedoc_markdown: str) -> tuple[str, util_yaml.YAMLMe
             Loader=SafeLoader,
         )
         preamble_includes = _as_include_list(augmented_metadata.get("header-includes"))
+        preamble_environments = augmented_metadata.get("pandoc-latex-environment")
         if yaml_metadata is not None:
             augmented_metadata = {**augmented_metadata, **yaml_metadata}
             # A header-includes entry in the document front matter would replace
@@ -295,6 +436,12 @@ def augment_yaml_preamble(hedgedoc_markdown: str) -> tuple[str, util_yaml.YAMLMe
             if "header-includes" in yaml_metadata:
                 combined = preamble_includes + _as_include_list(yaml_metadata["header-includes"])
                 augmented_metadata["header-includes"] = list(dict.fromkeys(combined))
+            # The same holds for pandoc-latex-environment: a document that adds
+            # one class must not drop the box and landscape classes.
+            if "pandoc-latex-environment" in yaml_metadata:
+                augmented_metadata["pandoc-latex-environment"] = _merge_environments(
+                    preamble_environments, yaml_metadata["pandoc-latex-environment"]
+                )
 
         augmented_metadata = {
             **augmented_metadata,
@@ -319,6 +466,25 @@ def augment_yaml_preamble(hedgedoc_markdown: str) -> tuple[str, util_yaml.YAMLMe
         if not any("sourcecodepro" in include for include in code_font_includes):
             code_font_includes.append(CODE_FONT_INCLUDE)
         augmented_metadata["header-includes"] = code_font_includes
+
+        # The landscape environment and its class binding go the same way.
+        # The driver appends the include after the preamble blocks. A preamble
+        # that uses `\newcommand` for the two helpers keeps its own version.
+        # Our `\providecommand` stays quiet either way.
+        landscape_includes = _as_include_list(augmented_metadata.get("header-includes"))
+        # The backslash in the check matters. The text `\renewenvironment` also
+        # contains the word `newenvironment`, but without the backslash in
+        # front of it. The check only matches text with the backslash, so it
+        # does not match `\renewenvironment`. A document that only renews the
+        # environment still needs the driver's copy of `\newenvironment`,
+        # because there is nothing yet to renew.
+        if not any("\\newenvironment{landscapepage}" in include for include in landscape_includes):
+            landscape_includes.append(LANDSCAPE_INCLUDE)
+        augmented_metadata["header-includes"] = landscape_includes
+        environments = _merge_environments(augmented_metadata.get("pandoc-latex-environment"), None)
+        if LANDSCAPE_ENVIRONMENT not in environments.get(LANDSCAPE_ENVIRONMENT, []):
+            environments.setdefault(LANDSCAPE_ENVIRONMENT, []).append(LANDSCAPE_ENVIRONMENT)
+        augmented_metadata["pandoc-latex-environment"] = environments
 
         creator_block = (
             f"```{{=latex}}\n\\AtBeginDocument{{\\hypersetup{{pdfcreator={{{_CREATOR}}}}}}}\n```\n"

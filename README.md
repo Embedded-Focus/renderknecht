@@ -93,6 +93,50 @@ titlepage-logo: logo.pdf
 
 Authors listed in `authors.yaml` are expanded to their full display names automatically.
 
+### Boxes and wide tables
+
+Five marked-up blocks work in every document, and nothing is needed in front
+matter to get them:
+
+| Mark-up in the document | What it becomes |
+|-------------------------|-----------------|
+| `::: info` | cyan box |
+| `::: warning` | orange box |
+| `::: error` | red box |
+| `::: box` | plain tcolorbox, own frame only |
+| `::: landscapepage` | landscape page, one table per sheet |
+
+`landscapepage` is the one to reach for when a table runs past the text block.
+It puts the table on a page of its own and back to portrait afterwards.
+`pdflscape` rotates the page. The sheet also gets a head and a foot that
+match the portrait pages: title, date, author, and page number. It reads
+like the rest of the document.
+
+The boxes live in `src/renderknecht/resources/preamble.yaml`. A document
+that carries them in its own front matter is not wrong, only redundant.
+The driver merges `header-includes` entries with the preamble's list and
+drops exact duplicates, so each LaTeX definition runs once. Two copies
+without that merge stop the build with an "already defined" error.
+
+`landscapepage` is different: the driver adds it, not the preamble file. A
+preamble loaded through `PREAMBLE_YAML`, `RESOURCES_DIR`, or
+`~/.config/renderknecht/` can replace everything else in the bundled file.
+A landscape feature that this file drops is a feature documents lose
+without warning.
+
+The environment classes are merged the same way, per environment. A document
+that adds a class of its own keeps the classes above:
+
+```yaml
+---
+pandoc-latex-environment:
+  hint: [hint]
+---
+```
+
+The landscape definition is guarded, so a document that predates this change
+and defines `landscapepage` itself still renders. Its copy is inert and can go.
+
 ## Pinned versions
 
 `Dockerfile.renderknecht` fixes every part of the toolchain. The base image is
