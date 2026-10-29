@@ -62,6 +62,31 @@ header-includes:
 # head. `\textheight` (with the `\@colht`/`\@colroom`/`\vsize` copies
 # `landscape` makes of it) is shrunk by 4cm: 2cm for the same shift at the
 # start, and 2cm for the foot, as before.
+#
+# Eisvogel sets every figure to `[H]` placement. A `[H]` figure never
+# floats to a later page, but it must still fit on the current page.
+#
+# Pandoc already helps with this. For any `\includegraphics` call with a
+# `width` but no `height`, pandoc adds `height=\textheight,keepaspectratio`.
+# A tall image then shrinks to fit `\textheight`.
+#
+# This shrink target was the same `\textheight` value just copied into
+# `\@colht`, `\@colroom`, and `\vsize`. It left no room for the caption
+# below the image. A `[H]` figure often sits alone on a landscape sheet,
+# with no other text. When the image alone already fills the full budget,
+# the caption does not fit. LaTeX then starts the figure on a fresh page,
+# and the page meant for it ships empty.
+#
+# A test confirmed this cause. Plain paragraphs on the same sheet, with no
+# figure, never lost a sheet. A figure, placed between two such
+# paragraphs, split the content onto three sheets. One sheet was blank,
+# one held the image, and one held the text after it.
+#
+# The code now shrinks `\textheight` by a further 2cm, after the copy to
+# `\@colht`, `\@colroom`, and `\vsize`. Pandoc's own image-fitting then
+# leaves that much room for the caption. The code does not touch the 2cm
+# page budget in `\@colht`, `\@colroom`, and `\vsize`, so a table still
+# gets the same capacity as before.
 - |
   ```{=latex}
   \usepackage{tikz}
@@ -92,6 +117,7 @@ header-includes:
   \@colht=\textheight\relax
   \@colroom=\textheight\relax
   \vsize=\textheight\relax
+  \addtolength{\textheight}{-2cm}%
   \def\@oddhead{\landscapepage@head}%
   \def\@oddfoot{\landscapepage@foot}%
   }{%

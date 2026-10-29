@@ -125,6 +125,31 @@ CODE_FONT_INCLUDE = "```{=latex}\n\\usepackage{sourcecodepro}\n```\n"
 #: `\@colroom`, and `\vsize`, so the code sets these three to the same new
 #: value. A test confirmed the fix. Both ends of the body box now have the
 #: same comfortable gap.
+#:
+#: Eisvogel sets every figure to `[H]` placement. A `[H]` figure never
+#: floats to a later page, but it must still fit on the current page.
+#:
+#: Pandoc already helps with this. For any `\includegraphics` call with a
+#: `width` but no `height`, pandoc adds `height=\textheight,keepaspectratio`.
+#: A tall image then shrinks to fit `\textheight`.
+#:
+#: This shrink target was the same `\textheight` value just copied into
+#: `\@colht`, `\@colroom`, and `\vsize`. It left no room for the caption
+#: below the image. A `[H]` figure often sits alone on a landscape sheet,
+#: with no other text. When the image alone already fills the full budget,
+#: the caption does not fit. LaTeX then starts the figure on a fresh page,
+#: and the page meant for it ships empty.
+#:
+#: A test confirmed this cause. Plain paragraphs on the same sheet, with
+#: no figure, never lost a sheet. A figure, placed between two such
+#: paragraphs, split the content onto three sheets. One sheet was blank,
+#: one held the image, and one held the text after it.
+#:
+#: The code now shrinks `\textheight` by a further 2cm, after the copy to
+#: `\@colht`, `\@colroom`, and `\vsize`. Pandoc's own image-fitting then
+#: leaves that much room for the caption. The code does not touch the 2cm
+#: page budget in `\@colht`, `\@colroom`, and `\vsize`, so a table still
+#: gets the same capacity as before.
 LANDSCAPE_INCLUDE = (
     "```{=latex}\n"
     "\\usepackage{pdflscape}\n"
@@ -162,6 +187,7 @@ LANDSCAPE_INCLUDE = (
     "\\@colht=\\textheight\\relax\n"
     "\\@colroom=\\textheight\\relax\n"
     "\\vsize=\\textheight\\relax\n"
+    "\\addtolength{\\textheight}{-2cm}%\n"
     "\\def\\@oddhead{\\landscapepage@head}%\n"
     "\\def\\@oddfoot{\\landscapepage@foot}%\n"
     "}{%\n"
