@@ -1,3 +1,6 @@
+[tool.uv]
+preview-features = ["audit-command"]
+
 [project]
 name = "renderknecht"
 authors = [
