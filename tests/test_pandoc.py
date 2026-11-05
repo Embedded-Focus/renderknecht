@@ -199,6 +199,90 @@ def test_landscapepage_needs_no_front_matter() -> None:
     assert metadata["pandoc-latex-environment"]["landscapepage"] == ["landscapepage"]
 
 
+def test_sheet_pages_need_no_front_matter() -> None:
+    """A plain document gets every sheet environment and its class binding.
+
+    The sheet family belongs to the preamble, so a document marks its wide
+    diagrams with `::: a3page` and names nothing in front matter.
+    """
+    tmp_files: pandoc.TemporaryFiles = []
+    _, metadata = pandoc.prepare_markdown("---\ntitle: x\n---\n\ntext\n", tmp_files)
+    assert metadata is not None
+    for name in pandoc.SHEET_PAGE_SIZES:
+        assert any(f"newenvironment{{{name}}}" in entry for entry in metadata["header-includes"])
+        assert metadata["pandoc-latex-environment"][name] == [name]
+
+
+def test_augment_yaml_preamble_keeps_document_sheet_block() -> None:
+    """A document that carries its own a3page block is answered, not doubled.
+
+    Documents that predate the driver-owned block define it in their own front
+    matter. A second copy runs `\newenvironment` twice. The driver leaves the
+    document's copy alone, still fills in the other sizes, and adds the class
+    bindings.
+    """
+    own_block = "```{=latex}\n\\newenvironment{a3page}{\\clearpage}{\\clearpage}\n```\n"
+    document = (
+        "---\nheader-includes:\n- |\n  ```{=latex}\n"
+        "  \\newenvironment{a3page}{\\clearpage}{\\clearpage}\n"
+        "  ```\n---\n\ntext\n"
+    )
+    os.environ["PREAMBLE_YAML"] = "/dev/null"
+    tmp_files: pandoc.TemporaryFiles = []
+    _, metadata = pandoc.prepare_markdown(document, tmp_files)
+    assert metadata is not None
+    includes = metadata.get("header-includes", [])
+    # The appended include defines only the missing sizes.
+    assert pandoc.SHEET_PAGE_INCLUDE not in includes
+    assert not any("newenvironment{a3page}" in entry for entry in includes[1:])
+    assert any("newenvironment{a4page}" in entry for entry in includes)
+    assert sum(own_block in entry for entry in includes) == 1
+    for name in pandoc.SHEET_PAGE_SIZES:
+        assert metadata["pandoc-latex-environment"][name] == [name]
+
+
+def test_sheet_page_include_writes_layout_globally_and_captures_per_sheet() -> None:
+    """The sheet layout survives the output routine's global writes.
+
+    The sheet's last page ships out inside the environment group, and the
+    LaTeX output routine writes `\\@colht` and `\\vsize` globally from the
+    sheet's `\\textheight`. A local switch leaves those two inflated after the
+    group ends, and the foot of the next page falls off the paper. Every
+    layout write must therefore be global, and every sheet must capture its
+    own starting layout so that nested sheets restore level by level.
+    """
+    include = pandoc._sheet_page_include(["a3page"])
+    for register in ("\\textheight", "\\@colht", "\\@colroom", "\\vsize", "\\paperheight"):
+        assert f"\\global{register}=" in include
+    assert "\\setlength" not in include
+    assert "renderknecht@basepaper" not in include
+    begin = include.split("\\newenvironment{a3page}{%", 1)[1].split("}{%", 1)[0]
+    assert "\\renderknecht@capturelayout" in begin
+
+
+def test_sheet_page_include_rejects_unknown_size() -> None:
+    """A name outside the family stops the build with a clear error.
+
+    A typo like `::: a2page` must not reach LaTeX as a silently broken
+    environment definition.
+    """
+    with pytest.raises(ValueError, match="a2page"):
+        pandoc._sheet_page_include(["a2page"])
+
+
+def test_preamble_yaml_stays_in_sync_with_sheet_page_include() -> None:
+    """The bundled preamble carries the sheet family verbatim.
+
+    `preamble.yaml` duplicates the generated include so that a user who
+    copies the bundled file as a starting point keeps the feature. The two
+    texts must stay identical, or the copy drifts.
+    """
+    data = pandoc.yaml.safe_load((pandoc._RESOURCES / "preamble.yaml").read_text())
+    includes = data["header-includes"]
+    matching = [entry for entry in includes if "\\newenvironment{a3page}" in entry]
+    assert matching == [pandoc.SHEET_PAGE_INCLUDE]
+
+
 def test_as_include_list_handles_scalar_and_sequence() -> None:
     assert pandoc._as_include_list(None) == []
     assert pandoc._as_include_list("a") == ["a"]
@@ -525,9 +609,13 @@ def test_extract_yaml_metadata() -> None:
         "header-includes": [
             pandoc.CODE_FONT_INCLUDE,
             pandoc.LANDSCAPE_INCLUDE,
+            pandoc.SHEET_PAGE_INCLUDE,
             _CREATOR_BLOCK,
         ],
-        "pandoc-latex-environment": {"landscapepage": ["landscapepage"]},
+        "pandoc-latex-environment": {
+            "landscapepage": ["landscapepage"],
+            **{name: [name] for name in pandoc.SHEET_PAGE_SIZES},
+        },
     }
     assert not tmp_files
 
@@ -559,9 +647,13 @@ header-includes:
             "```{=latex}\n\\usepackage{pdflscape}\n\\newcommand{\\blandscape}{\\begin{landscape}}\n\\newcommand{\\elandscape}{\\end{landscape}}\n",
             pandoc.CODE_FONT_INCLUDE,
             pandoc.LANDSCAPE_INCLUDE,
+            pandoc.SHEET_PAGE_INCLUDE,
             _CREATOR_BLOCK,
         ],
-        "pandoc-latex-environment": {"landscapepage": ["landscapepage"]},
+        "pandoc-latex-environment": {
+            "landscapepage": ["landscapepage"],
+            **{name: [name] for name in pandoc.SHEET_PAGE_SIZES},
+        },
     }
     assert not tmp_files
 
@@ -595,6 +687,7 @@ author:
             "```{=latex}\n\\usepackage{pdflscape}\n\\newcommand{\\blandscape}{\\begin{landscape}}\n\\newcommand{\\elandscape}{\\end{landscape}}\n```\n",
             "```{=latex}\n\\usepackage{tcolorbox}\n\\newtcolorbox{info-box}{colback=cyan!5!white,arc=0pt,outer arc=0pt,colframe=cyan!60!black}\n\\newtcolorbox{warning-box}{colback=orange!5!white,arc=0pt,outer arc=0pt,colframe=orange!80!black}\n\\newtcolorbox{error-box}{colback=red!5!white,arc=0pt,outer arc=0pt,colframe=red!75!black}\n```\n",
             "```{=latex}\n\\usepackage{tikz}\n\\makeatletter\n\\@ifundefined{landscapepage}{%\n\\newcommand{\\landscapepage@head}{%\n\\begin{tikzpicture}[remember picture,overlay]\n\\node[rotate=90,anchor=south west,inner sep=0pt] at ([xshift=2.5cm,yshift=2.5cm]current page.south west)\n{\\hbox to \\dimexpr\\paperheight-5cm\\relax{\\normalfont\\upshape\\small \\@title\\hfil \\@date}};\n\\node[rotate=90,anchor=south west,inner sep=0pt] at ([xshift=2.6cm,yshift=2.5cm]current page.south west)\n{\\hbox to \\dimexpr\\paperheight-5cm\\relax{\\leaders\\hrule height 0.4pt\\hfil}};\n\\end{tikzpicture}%\n}%\n\\newcommand{\\landscapepage@foot}{%\n\\begin{tikzpicture}[remember picture,overlay]\n\\node[rotate=90,anchor=north west,inner sep=0pt] at ([xshift=\\dimexpr\\paperwidth-2.6cm\\relax,yshift=2.5cm]current page.south west)\n{\\hbox to \\dimexpr\\paperheight-5cm\\relax{\\leaders\\hrule height 0.4pt\\hfil}};\n\\node[rotate=90,anchor=north west,inner sep=0pt] at ([xshift=\\dimexpr\\paperwidth-2.5cm\\relax,yshift=2.5cm]current page.south west)\n{\\hbox to \\dimexpr\\paperheight-5cm\\relax{\\normalfont\\upshape\\small \\@author\\hfil \\thepage}};\n\\end{tikzpicture}%\n}%\n\\newenvironment{landscapepage}{%\n\\clearpage\n\\pagestyle{empty}%\n\\blandscape\n\\addtolength{\\oddsidemargin}{2cm}%\n\\addtolength{\\textheight}{-4cm}%\n\\@colht=\\textheight\\relax\n\\@colroom=\\textheight\\relax\n\\vsize=\\textheight\\relax\n\\addtolength{\\textheight}{-2cm}%\n\\def\\@oddhead{\\landscapepage@head}%\n\\def\\@oddfoot{\\landscapepage@foot}%\n}{%\n\\elandscape\n\\clearpage\n\\@ifundefined{ps@eisvogel-header-footer}{}{\\pagestyle{eisvogel-header-footer}}%\n}\n}{}\n\\makeatother\n```\n",
+            pandoc.SHEET_PAGE_INCLUDE,
             "```{=latex}\n\\usepackage{sourcecodepro}\n```\n",
             _CREATOR_BLOCK,
         ],
@@ -604,6 +697,7 @@ author:
             "warning-box": ["warning"],
             "error-box": ["error"],
             "landscapepage": ["landscapepage"],
+            **{name: [name] for name in pandoc.SHEET_PAGE_SIZES},
         },
         "colorlinks": True,
         "fontfamily": "sourcesanspro",
@@ -648,6 +742,7 @@ author:
             "```{=latex}\n\\usepackage{pdflscape}\n\\newcommand{\\blandscape}{\\begin{landscape}}\n\\newcommand{\\elandscape}{\\end{landscape}}\n```\n",
             "```{=latex}\n\\usepackage{tcolorbox}\n\\newtcolorbox{info-box}{colback=cyan!5!white,arc=0pt,outer arc=0pt,colframe=cyan!60!black}\n\\newtcolorbox{warning-box}{colback=orange!5!white,arc=0pt,outer arc=0pt,colframe=orange!80!black}\n\\newtcolorbox{error-box}{colback=red!5!white,arc=0pt,outer arc=0pt,colframe=red!75!black}\n```\n",
             "```{=latex}\n\\usepackage{tikz}\n\\makeatletter\n\\@ifundefined{landscapepage}{%\n\\newcommand{\\landscapepage@head}{%\n\\begin{tikzpicture}[remember picture,overlay]\n\\node[rotate=90,anchor=south west,inner sep=0pt] at ([xshift=2.5cm,yshift=2.5cm]current page.south west)\n{\\hbox to \\dimexpr\\paperheight-5cm\\relax{\\normalfont\\upshape\\small \\@title\\hfil \\@date}};\n\\node[rotate=90,anchor=south west,inner sep=0pt] at ([xshift=2.6cm,yshift=2.5cm]current page.south west)\n{\\hbox to \\dimexpr\\paperheight-5cm\\relax{\\leaders\\hrule height 0.4pt\\hfil}};\n\\end{tikzpicture}%\n}%\n\\newcommand{\\landscapepage@foot}{%\n\\begin{tikzpicture}[remember picture,overlay]\n\\node[rotate=90,anchor=north west,inner sep=0pt] at ([xshift=\\dimexpr\\paperwidth-2.6cm\\relax,yshift=2.5cm]current page.south west)\n{\\hbox to \\dimexpr\\paperheight-5cm\\relax{\\leaders\\hrule height 0.4pt\\hfil}};\n\\node[rotate=90,anchor=north west,inner sep=0pt] at ([xshift=\\dimexpr\\paperwidth-2.5cm\\relax,yshift=2.5cm]current page.south west)\n{\\hbox to \\dimexpr\\paperheight-5cm\\relax{\\normalfont\\upshape\\small \\@author\\hfil \\thepage}};\n\\end{tikzpicture}%\n}%\n\\newenvironment{landscapepage}{%\n\\clearpage\n\\pagestyle{empty}%\n\\blandscape\n\\addtolength{\\oddsidemargin}{2cm}%\n\\addtolength{\\textheight}{-4cm}%\n\\@colht=\\textheight\\relax\n\\@colroom=\\textheight\\relax\n\\vsize=\\textheight\\relax\n\\addtolength{\\textheight}{-2cm}%\n\\def\\@oddhead{\\landscapepage@head}%\n\\def\\@oddfoot{\\landscapepage@foot}%\n}{%\n\\elandscape\n\\clearpage\n\\@ifundefined{ps@eisvogel-header-footer}{}{\\pagestyle{eisvogel-header-footer}}%\n}\n}{}\n\\makeatother\n```\n",
+            pandoc.SHEET_PAGE_INCLUDE,
             "```{=latex}\n\\usepackage{sourcecodepro}\n```\n",
             _CREATOR_BLOCK,
         ],
@@ -657,6 +752,7 @@ author:
             "warning-box": ["warning"],
             "error-box": ["error"],
             "landscapepage": ["landscapepage"],
+            **{name: [name] for name in pandoc.SHEET_PAGE_SIZES},
         },
         "colorlinks": True,
         "fontfamily": "sourcesanspro",
@@ -760,8 +856,12 @@ toc-own-page: true
         "header-includes": [
             pandoc.CODE_FONT_INCLUDE,
             pandoc.LANDSCAPE_INCLUDE,
+            pandoc.SHEET_PAGE_INCLUDE,
             _CREATOR_BLOCK,
         ],
-        "pandoc-latex-environment": {"landscapepage": ["landscapepage"]},
+        "pandoc-latex-environment": {
+            "landscapepage": ["landscapepage"],
+            **{name: [name] for name in pandoc.SHEET_PAGE_SIZES},
+        },
     }
     assert not tmp_files

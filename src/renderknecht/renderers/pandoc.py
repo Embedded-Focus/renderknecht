@@ -9,7 +9,7 @@ import shlex
 import string
 import subprocess
 import tempfile
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from io import FileIO
 from pathlib import Path
@@ -202,6 +202,271 @@ LANDSCAPE_INCLUDE = (
 
 #: The div class that binds a block to the landscape environment.
 LANDSCAPE_ENVIRONMENT = "landscapepage"
+
+#: Sheets of a different size. A document asks for one with `::: a3page`,
+#: `::: a4page`, and the rest of the family below, and this code answers
+#: that request.
+#
+#: The definition belongs to the driver, for the same reason as the landscape
+#: definition above. A preamble file that replaces the bundled one would
+#: otherwise lose the feature, without warning. The driver wraps the
+#: definition in a check. If the environment already exists, the driver skips
+#: it. Two definitions in one build stop it with an error.
+#
+#: A page of a different size is a different problem from a rotated page.
+#: `pdflscape` only turns the sheet, so the paper stays A4. Here the paper
+#: itself changes, and the text block must follow it. Eisvogel builds on the
+#: KOMA-Script classes, and KOMA-Script owns both jobs:
+#
+#: `\KOMAoptions{paper=<spec>}` sets the new `\paperwidth` and `\paperheight`.
+#: The option accepts a name such as `a3`, and a pair such as `297mm:420mm`.
+#: The option does not recalculate the type area, and the code never runs
+#: `\recalctypearea` for a sheet either. A recalculation is wrong for a
+#: sheet, on two counts.
+#
+#: First, typearea caps the line width to what the font size can still read.
+#: On A4 that cap sits above the text width, and nothing happens. On A3 the
+#: cap binds: the text width comes out around 338pt, and the sheet is a
+#: mostly empty page with a narrow strip of text. A diagram that asks for
+#: `width=100%` gets `height=\textheight` from pandoc and shrinks with it.
+#
+#: Second, the document may not run its layout through typearea at all.
+#: Eisvogel builds its type area with the geometry package, `margin=2.5cm`,
+#: head and foot included. A recalculation replaces that layout with
+#: typearea's own idea of the paper, and the page after the sheet carries
+#: the wrong footer position. The code therefore never recalculates. It
+#: captures the current layout at every sheet and grows the type area with
+#: the paper, so the sheet keeps the margins of the document and
+#: the page after the sheet gets its own layout back, value by value.
+#
+#: The code updates the output routine copies `\@colht`, `\@colroom`, and
+#: `\vsize` itself, and `\linewidth` with them, because pandoc writes image
+#: widths as fractions of `\linewidth`. KOMA-Script starts a new page for
+#: the paper change itself. The code clears the page anyway, so the order is
+#: safe on its own.
+#
+#: Every layout write is global, in the switch and in the restore. The
+#: sheet's last page ships out inside the environment group, at the
+#: `\clearpage` of the end code. The LaTeX output routine ends with
+#: `\global\@colht\textheight` and `\global\vsize\@colroom`, so that
+#: shipout writes the sheet's column height globally. A local switch would
+#: revert at the group end, but those copies would not: the page after the
+#: sheet would get a page box as tall as the sheet's, and its foot would
+#: land below the paper edge, drawn but invisible. With global writes the
+#: layout is one consistent state, and the restore, which runs after that
+#: last shipout, overwrites all of it.
+#
+#: KOMA-Script writes `\pdfpagewidth` and `\pdfpageheight` once, at
+#: `\begin{document}`. A later `paper` change does not reach the PDF page
+#: size on its own, so the code writes both primitives after every paper
+#: change. The primitives exist under pdfTeX and XeTeX. LuaTeX names them
+#: `\pagewidth` and `\pageheight`. The build uses pdfTeX, and each write is
+#: guarded, so the code stays quiet on any engine.
+#
+#: The code captures the paper and the layout at the start of every sheet,
+#: as dimensions and not as a name. `paper=210mm:297mm` is a valid
+#: `paper` value, and the restore writes the lengths back one by one. The
+#: restore therefore works for every base paper and every way of building
+#: the layout, geometry or typearea. A document that sets `papersize:` in
+#: its front matter gets its own paper back, not a hard-coded A4. The
+#: capture registers are assigned locally, inside the environment group, so
+#: the nested groups act as a stack: a nested sheet restores the outer
+#: sheet's layout, and the outer sheet restores the document's.
+#
+#: The capture and the restore cover the lengths of the page body. Twoside
+#: documents keep their inner and outer margins through `\oddsidemargin`
+#: alone in this code; a sheet in a twoside document gets the outer margin
+#: of the recto pages. Eisvogel documents are onesided, and margin notes
+#: have no place on a diagram sheet.
+#
+#: The Eisvogel head and foot need no replacement here. `scrlayer` stores the
+#: geometry of every layer as an expression, and evaluates the expression once
+#: per page, at shipout. The layers hold `\textwidth` and `\paperwidth`, so
+#: they follow the new paper on the next sheet. This is why `landscapepage`
+#: needs a hand-drawn head and foot and the sheet family does not: `pdflscape`
+#: turns the page, and the layers do not know about the turn.
+#
+#: KOMA-Script warns when a type area option changes inside a group, and an
+#: environment is a group. The warning asks for typesetting care, and the
+#: care is already here: the code clears the page before and after the
+#: change, so no material is measured with the old `\hsize`. The code
+#: silences the warning around the `\KOMAoptions` call and restores the
+#: check right after. The two silencing helpers use `\providecommand`, so a
+#: preamble that defines them first wins.
+#:
+#: A figure grows with the sheet without extra markup. Pandoc fits an image to
+#: `\linewidth` and `\textheight`, and both hold the new values inside the
+#: environment. A Mermaid diagram with `width=100%` then spans the text block
+#: of the changed sheet.
+#
+#: The sizes are a fixed family, not a parameter on one environment. The
+#: `pandoc-latex-environment` filter turns a div into `\begin{name}` and
+#: nothing else. A title attribute would arrive as a mandatory argument,
+#: but a div without that attribute emits no braces at all. The environment
+#: would then eat the first token of the content, silently. HedgeDoc, the
+#: main authoring surface, edits plain `::: name` divs best. One environment
+#: per size keeps every use to a plain div, and a typo in a size is a build
+#: error instead of a mangled page. Documents that need a size outside the
+#: family set `papersize:` in their front matter, which the base-paper
+#: restore below respects.
+SHEET_PAGE_SIZES: dict[str, str] = {
+    "a3page": "a3",
+    "a4page": "a4",
+    "a5page": "a5",
+    "b5page": "b5",
+    "letterpage": "letter",
+}
+
+
+def _sheet_page_include(sizes: Iterable[str]) -> str:
+    r"""Build the LaTeX block that defines the given sheet environments.
+
+    Each environment gets its own `\@ifundefined` guard. The driver can
+    therefore append an include that defines only the sizes a document or
+    a preamble does not already define, and a document's own copy of one
+    size never collides with the family.
+
+    The paper change lives in three helpers shared by every size: one that
+    captures the current paper and layout, and one each for switching and
+    restoring. Every environment captures on entry, into registers local to
+    its group, so nested sheets restore level by level. The switch and the
+    restore write globally, because the output routine globalizes the
+    column height while the sheet's last page ships out. The helpers are
+    defined once, under their own guard, so a preamble that wants its own
+    version can provide it first.
+
+    :param sizes: The sheet environments to define. Each name must be a key
+        of :data:`SHEET_PAGE_SIZES`.
+    :returns: A raw LaTeX block for ``header-includes``.
+    :raises ValueError: if a name is not a key of :data:`SHEET_PAGE_SIZES`.
+    """
+    for name in sizes:
+        if name not in SHEET_PAGE_SIZES:
+            raise ValueError(f"Unknown sheet environment: {name}")
+    lines = [
+        "```{=latex}",
+        "\\makeatletter",
+        "\\@ifundefined{renderknecht@switchpaper}{%",
+        # One allocation of the capture registers. The captures themselves
+        # happen per environment and stay local to its group.
+        "\\newdimen\\renderknecht@base@paperwidth",
+        "\\newdimen\\renderknecht@base@paperheight",
+        "\\newdimen\\renderknecht@base@textwidth",
+        "\\newdimen\\renderknecht@base@textheight",
+        "\\newdimen\\renderknecht@base@oddsidemargin",
+        "\\newdimen\\renderknecht@base@topmargin",
+        "\\newdimen\\renderknecht@base@headheight",
+        "\\newdimen\\renderknecht@base@headsep",
+        "\\newdimen\\renderknecht@base@footskip",
+        "\\providecommand*{\\renderknecht@silencegroupleveltest}{%",
+        "\\@ifundefined{scr@grouplevel@test}{}{%",
+        "\\let\\renderknecht@saved@groupleveltest\\scr@grouplevel@test",
+        "\\let\\scr@grouplevel@test\\@gobble",
+        "}%",
+        "}%",
+        "\\providecommand*{\\renderknecht@restategroupleveltest}{%",
+        "\\@ifundefined{renderknecht@saved@groupleveltest}{}{%",
+        "\\let\\scr@grouplevel@test\\renderknecht@saved@groupleveltest",
+        "}%",
+        "}%",
+        "\\newcommand{\\renderknecht@capturelayout}{%",
+        "\\renderknecht@base@paperwidth=\\paperwidth",
+        "\\renderknecht@base@paperheight=\\paperheight",
+        "\\renderknecht@base@textwidth=\\textwidth",
+        "\\renderknecht@base@textheight=\\textheight",
+        "\\renderknecht@base@oddsidemargin=\\oddsidemargin",
+        "\\renderknecht@base@topmargin=\\topmargin",
+        "\\renderknecht@base@headheight=\\headheight",
+        "\\renderknecht@base@headsep=\\headsep",
+        "\\renderknecht@base@footskip=\\footskip",
+        "}%",
+        # The switch grows the type area by the paper delta and keeps the
+        # captured margins, so the sheet fills the paper the way the document
+        # fills its own paper. A recalculated type area would cap the line
+        # width to the font size and leave the sheet mostly empty; a wide
+        # diagram would shrink with the strip that is left over.
+        "\\newcommand{\\renderknecht@switchpaper}[1]{%",
+        "\\renderknecht@silencegroupleveltest",
+        "\\KOMAoptions{paper=#1}%",
+        "\\renderknecht@restategroupleveltest",
+        # Every write below is global. The sheet's own last page ships out
+        # inside the environment group, and the LaTeX output routine then
+        # writes `\vsize`, `\@colht`, and `\@colroom` globally from the
+        # sheet's `\textheight`. Local writes would revert at the group end,
+        # but those three would not, and the page after the sheet would get
+        # the sheet's column height: its foot lands below the paper edge.
+        # Global writes keep the whole layout in one state, and the restore
+        # overwrites all of it after that last shipout.
+        "\\global\\paperwidth=\\paperwidth",
+        "\\global\\paperheight=\\paperheight",
+        # The type area grows with the paper, the margins stay. Both margins
+        # together own the same space as on the base paper, split as before.
+        "\\global\\textwidth=\\dimexpr\\renderknecht@base@textwidth+\\paperwidth-\\renderknecht@base@paperwidth\\relax",
+        "\\global\\textheight=\\dimexpr\\renderknecht@base@textheight+\\paperheight-\\renderknecht@base@paperheight\\relax",
+        # The margins, the head, and the foot keep the captured values, so
+        # nothing the paper option changes wins over the document's layout.
+        "\\global\\oddsidemargin=\\renderknecht@base@oddsidemargin",
+        "\\global\\topmargin=\\renderknecht@base@topmargin",
+        "\\global\\headheight=\\renderknecht@base@headheight",
+        "\\global\\headsep=\\renderknecht@base@headsep",
+        "\\global\\footskip=\\renderknecht@base@footskip",
+        "\\global\\hsize=\\textwidth",
+        "\\global\\linewidth=\\textwidth",
+        "\\global\\@colht=\\textheight",
+        "\\global\\@colroom=\\textheight",
+        "\\global\\vsize=\\textheight",
+        "\\ifdefined\\pdfpagewidth\\global\\pdfpagewidth=\\paperwidth\\fi",
+        "\\ifdefined\\pdfpageheight\\global\\pdfpageheight=\\paperheight\\fi",
+        "}%",
+        # The restore writes every captured length back, globally, after the
+        # sheet's last page is out. No recalculation: typearea's own idea of
+        # the base paper would move the footer of the page after the sheet,
+        # because Eisvogel builds its layout with the geometry package and
+        # not with the typearea divisor.
+        "\\newcommand{\\renderknecht@restorepaper}{%",
+        "\\global\\paperwidth=\\renderknecht@base@paperwidth",
+        "\\global\\paperheight=\\renderknecht@base@paperheight",
+        "\\global\\textwidth=\\renderknecht@base@textwidth",
+        "\\global\\textheight=\\renderknecht@base@textheight",
+        "\\global\\oddsidemargin=\\renderknecht@base@oddsidemargin",
+        "\\global\\topmargin=\\renderknecht@base@topmargin",
+        "\\global\\headheight=\\renderknecht@base@headheight",
+        "\\global\\headsep=\\renderknecht@base@headsep",
+        "\\global\\footskip=\\renderknecht@base@footskip",
+        "\\global\\hsize=\\textwidth",
+        "\\global\\linewidth=\\textwidth",
+        "\\global\\@colht=\\textheight",
+        "\\global\\@colroom=\\textheight",
+        "\\global\\vsize=\\textheight",
+        "\\ifdefined\\pdfpagewidth\\global\\pdfpagewidth=\\paperwidth\\fi",
+        "\\ifdefined\\pdfpageheight\\global\\pdfpageheight=\\paperheight\\fi",
+        "}%",
+        "}{}",
+    ]
+    for name in sizes:
+        lines += [
+            f"\\@ifundefined{{{name}}}{{%",
+            f"\\newenvironment{{{name}}}{{%",
+            "\\clearpage",
+            # Every sheet captures the layout it starts from. The capture is
+            # local to the environment group, so the groups form a stack: a
+            # nested sheet restores the outer sheet's layout, and the outer
+            # sheet restores the document's.
+            "\\renderknecht@capturelayout",
+            f"\\renderknecht@switchpaper{{{SHEET_PAGE_SIZES[name]}}}%",
+            "}{%",
+            "\\clearpage",
+            "\\renderknecht@restorepaper",
+            "}",
+            "}{}",
+        ]
+    lines += ["\\makeatother", "```"]
+    return "\n".join(lines) + "\n"
+
+
+#: The full family of sheet environments, as one include. The driver appends
+#: this block when the preamble and the document define none of the sizes.
+SHEET_PAGE_INCLUDE = _sheet_page_include(SHEET_PAGE_SIZES)
 
 #: The font family that keeps the look Eisvogel would bring with its default
 #: `sourcesans` package. That package is gone from Debian trixie, so trixie's
@@ -493,23 +758,35 @@ def augment_yaml_preamble(hedgedoc_markdown: str) -> tuple[str, util_yaml.YAMLMe
             code_font_includes.append(CODE_FONT_INCLUDE)
         augmented_metadata["header-includes"] = code_font_includes
 
-        # The landscape environment and its class binding go the same way.
-        # The driver appends the include after the preamble blocks. A preamble
+        # The sheet environments and their class bindings go the same way.
+        # The driver appends each include after the preamble blocks. A preamble
         # that uses `\newcommand` for the two helpers keeps its own version.
         # Our `\providecommand` stays quiet either way.
-        landscape_includes = _as_include_list(augmented_metadata.get("header-includes"))
-        # The backslash in the check matters. The text `\renewenvironment` also
+        driver_includes = _as_include_list(augmented_metadata.get("header-includes"))
+        # The backslash in each check matters. The text `\renewenvironment` also
         # contains the word `newenvironment`, but without the backslash in
         # front of it. The check only matches text with the backslash, so it
         # does not match `\renewenvironment`. A document that only renews the
         # environment still needs the driver's copy of `\newenvironment`,
         # because there is nothing yet to renew.
-        if not any("\\newenvironment{landscapepage}" in include for include in landscape_includes):
-            landscape_includes.append(LANDSCAPE_INCLUDE)
-        augmented_metadata["header-includes"] = landscape_includes
+        if not any("\\newenvironment{landscapepage}" in include for include in driver_includes):
+            driver_includes.append(LANDSCAPE_INCLUDE)
+        # A document may define its own copy of one size and still need the
+        # rest of the family. The check runs per size, and the include that
+        # goes out carries only the missing ones. Every environment in it is
+        # guarded, so an overlap with a preamble copy stays harmless.
+        missing_sheets = [
+            name
+            for name in SHEET_PAGE_SIZES
+            if not any(f"\\newenvironment{{{name}}}" in include for include in driver_includes)
+        ]
+        if missing_sheets:
+            driver_includes.append(_sheet_page_include(missing_sheets))
+        augmented_metadata["header-includes"] = driver_includes
         environments = _merge_environments(augmented_metadata.get("pandoc-latex-environment"), None)
-        if LANDSCAPE_ENVIRONMENT not in environments.get(LANDSCAPE_ENVIRONMENT, []):
-            environments.setdefault(LANDSCAPE_ENVIRONMENT, []).append(LANDSCAPE_ENVIRONMENT)
+        for sheet_environment in (LANDSCAPE_ENVIRONMENT, *SHEET_PAGE_SIZES):
+            if sheet_environment not in environments.get(sheet_environment, []):
+                environments.setdefault(sheet_environment, []).append(sheet_environment)
         augmented_metadata["pandoc-latex-environment"] = environments
 
         creator_block = (

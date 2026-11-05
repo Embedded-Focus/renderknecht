@@ -105,6 +105,7 @@ matter to get them:
 | `::: error` | red box |
 | `::: box` | plain tcolorbox, own frame only |
 | `::: landscapepage` | landscape page, one table per sheet |
+| `::: a3page`, `::: a4page`, `::: a5page`, `::: b5page`, `::: letterpage` | sheet of that paper size |
 
 `landscapepage` is the one to reach for when a table runs past the text block.
 It puts the table on a page of its own and back to portrait afterwards.
@@ -122,7 +123,10 @@ without that merge stop the build with an "already defined" error.
 preamble loaded through `PREAMBLE_YAML`, `RESOURCES_DIR`, or
 `~/.config/renderknecht/` can replace everything else in the bundled file.
 A landscape feature that this file drops is a feature documents lose
-without warning.
+without warning. The sheet sizes work the same way, and the bundled
+preamble carries a copy of that definition too. The driver checks the
+definitions per size, so a document that defines `a3page` itself still
+gets the rest of the family.
 
 The environment classes are merged the same way, per environment. A document
 that adds a class of its own keeps the classes above:
@@ -136,6 +140,42 @@ pandoc-latex-environment:
 
 The landscape definition is guarded, so a document that predates this change
 and defines `landscapepage` itself still renders. Its copy is inert and can go.
+
+### Sheets of another size
+
+A diagram or a table that does not fit A4 can sit on a bigger sheet. Mark the
+block with one of the five sizes:
+
+```markdown
+::: a3page
+
+![Deployment diagram](diagram.png){ width=100% }
+
+:::
+```
+
+The text block grows with the sheet, and the head and foot follow. Each sheet
+records the paper and the layout it starts from and writes them back at its
+end, so a document that sets `papersize:` in its front matter keeps its own
+paper, and a sheet inside another sheet hands the outer sheet its size back. Sizes outside the
+family are not available as divs; use `papersize:` there.
+
+The environments nest. Put `landscapepage` inside a bigger sheet when a wide
+table needs both the room and the turn:
+
+```markdown
+::: a3page
+
+::: landscapepage
+
+| Column A | Column B | Column C | Column D |
+|----------|----------|----------|----------|
+| ...      | ...      | ...      | ...      |
+
+:::
+
+:::
+```
 
 ## Pinned versions
 
