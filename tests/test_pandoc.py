@@ -241,8 +241,25 @@ def test_augment_yaml_preamble_keeps_document_sheet_block() -> None:
         assert metadata["pandoc-latex-environment"][name] == [name]
 
 
-def test_augment_yaml_preamble_adds_unicode_char_mappings_without_preamble() -> None:
-    """A stripped preamble must still map the superscript and subscript family.
+def test_augment_yaml_preamble_maps_only_font_gaps_for_xetex() -> None:
+    """XeTeX renders the font's own glyphs; only the font's gaps need a mapping.
+
+    Source Sans Pro carries the whole superscript and subscript family except
+    the subscript n. Mapping the rest would replace the font's nicer glyphs
+    with what `\textsuperscript` fakes, so the driver maps only `\u2099`.
+    """
+    os.environ["PREAMBLE_YAML"] = "/dev/null"
+    os.environ.pop("PDF_ENGINE", None)
+    tmp_files: pandoc.TemporaryFiles = []
+    _, metadata = pandoc.prepare_markdown("---\ntitle: test\n---\n", tmp_files)
+    assert metadata is not None
+    includes = metadata.get("header-includes", [])
+    assert pandoc.UNICODE_CHAR_XETEX_INCLUDE in includes
+    assert pandoc.UNICODE_CHAR_INCLUDE not in includes
+
+
+def test_augment_yaml_preamble_adds_unicode_char_mappings_for_pdflatex() -> None:
+    """A pdfLaTeX render must map the superscript and subscript family.
 
     pdfLaTeX reads UTF-8 through the inputenc tables. The tables carry none of
     the superscript or subscript characters, so a document with ``e⁻`` stops
@@ -250,6 +267,7 @@ def test_augment_yaml_preamble_adds_unicode_char_mappings_without_preamble() -> 
     driver owns the mappings, so the character renders instead.
     """
     os.environ["PREAMBLE_YAML"] = "/dev/null"
+    os.environ["PDF_ENGINE"] = "pdflatex"
     tmp_files: pandoc.TemporaryFiles = []
     _, metadata = pandoc.prepare_markdown("---\ntitle: test\n---\n", tmp_files)
     assert metadata is not None
@@ -258,15 +276,6 @@ def test_augment_yaml_preamble_adds_unicode_char_mappings_without_preamble() -> 
     assert sum("newunicodechar" in entry for entry in includes) == 1
     assert any("\\newunicodechar{⁻}" in entry for entry in includes)
     assert any("\\newunicodechar{₂}" in entry for entry in includes)
-
-
-def test_augment_yaml_preamble_adds_unicode_char_mappings_with_preamble() -> None:
-    """The bundled preamble does not own newunicodechar, so the driver adds it."""
-    tmp_files: pandoc.TemporaryFiles = []
-    _, metadata = pandoc.prepare_markdown("---\ntitle: test\n---\n", tmp_files)
-    assert metadata is not None
-    includes = metadata.get("header-includes", [])
-    assert sum("newunicodechar" in entry for entry in includes) == 1
 
 
 def test_augment_yaml_preamble_keeps_document_unicode_char_block() -> None:
@@ -283,6 +292,7 @@ def test_augment_yaml_preamble_keeps_document_unicode_char_block() -> None:
         "  ```\n---\n\ntext\n"
     )
     os.environ["PREAMBLE_YAML"] = "/dev/null"
+    os.environ["PDF_ENGINE"] = "pdflatex"
     tmp_files: pandoc.TemporaryFiles = []
     _, metadata = pandoc.prepare_markdown(document, tmp_files)
     assert metadata is not None
@@ -657,11 +667,12 @@ def test_extract_yaml_metadata() -> None:
     assert metadata == {
         "fontfamily": "sourcesanspro",
         "fontfamilyoptions": ["default"],
+        "mainfont": "Source Sans Pro",
         "header-includes": [
             pandoc.CODE_FONT_INCLUDE,
             pandoc.LANDSCAPE_INCLUDE,
             pandoc.SHEET_PAGE_INCLUDE,
-            pandoc.UNICODE_CHAR_INCLUDE,
+            pandoc.UNICODE_CHAR_XETEX_INCLUDE,
             _CREATOR_BLOCK,
         ],
         "pandoc-latex-environment": {
@@ -695,12 +706,13 @@ header-includes:
     assert metadata == {
         "fontfamily": "sourcesanspro",
         "fontfamilyoptions": ["default"],
+        "mainfont": "Source Sans Pro",
         "header-includes": [
             "```{=latex}\n\\usepackage{pdflscape}\n\\newcommand{\\blandscape}{\\begin{landscape}}\n\\newcommand{\\elandscape}{\\end{landscape}}\n",
             pandoc.CODE_FONT_INCLUDE,
             pandoc.LANDSCAPE_INCLUDE,
             pandoc.SHEET_PAGE_INCLUDE,
-            pandoc.UNICODE_CHAR_INCLUDE,
+            pandoc.UNICODE_CHAR_XETEX_INCLUDE,
             _CREATOR_BLOCK,
         ],
         "pandoc-latex-environment": {
@@ -742,7 +754,7 @@ author:
             "```{=latex}\n\\usepackage{tikz}\n\\makeatletter\n\\@ifundefined{landscapepage}{%\n\\newcommand{\\landscapepage@head}{%\n\\begin{tikzpicture}[remember picture,overlay]\n\\node[rotate=90,anchor=south west,inner sep=0pt] at ([xshift=2.5cm,yshift=2.5cm]current page.south west)\n{\\hbox to \\dimexpr\\paperheight-5cm\\relax{\\normalfont\\upshape\\small \\@title\\hfil \\@date}};\n\\node[rotate=90,anchor=south west,inner sep=0pt] at ([xshift=2.6cm,yshift=2.5cm]current page.south west)\n{\\hbox to \\dimexpr\\paperheight-5cm\\relax{\\leaders\\hrule height 0.4pt\\hfil}};\n\\end{tikzpicture}%\n}%\n\\newcommand{\\landscapepage@foot}{%\n\\begin{tikzpicture}[remember picture,overlay]\n\\node[rotate=90,anchor=north west,inner sep=0pt] at ([xshift=\\dimexpr\\paperwidth-2.6cm\\relax,yshift=2.5cm]current page.south west)\n{\\hbox to \\dimexpr\\paperheight-5cm\\relax{\\leaders\\hrule height 0.4pt\\hfil}};\n\\node[rotate=90,anchor=north west,inner sep=0pt] at ([xshift=\\dimexpr\\paperwidth-2.5cm\\relax,yshift=2.5cm]current page.south west)\n{\\hbox to \\dimexpr\\paperheight-5cm\\relax{\\normalfont\\upshape\\small \\@author\\hfil \\thepage}};\n\\end{tikzpicture}%\n}%\n\\newenvironment{landscapepage}{%\n\\clearpage\n\\pagestyle{empty}%\n\\blandscape\n\\addtolength{\\oddsidemargin}{2cm}%\n\\addtolength{\\textheight}{-4cm}%\n\\@colht=\\textheight\\relax\n\\@colroom=\\textheight\\relax\n\\vsize=\\textheight\\relax\n\\addtolength{\\textheight}{-2cm}%\n\\def\\@oddhead{\\landscapepage@head}%\n\\def\\@oddfoot{\\landscapepage@foot}%\n}{%\n\\elandscape\n\\clearpage\n\\@ifundefined{ps@eisvogel-header-footer}{}{\\pagestyle{eisvogel-header-footer}}%\n}\n}{}\n\\makeatother\n```\n",
             pandoc.SHEET_PAGE_INCLUDE,
             "```{=latex}\n\\usepackage{sourcecodepro}\n```\n",
-            pandoc.UNICODE_CHAR_INCLUDE,
+            pandoc.UNICODE_CHAR_XETEX_INCLUDE,
             _CREATOR_BLOCK,
         ],
         "pandoc-latex-environment": {
@@ -756,6 +768,7 @@ author:
         "colorlinks": True,
         "fontfamily": "sourcesanspro",
         "fontfamilyoptions": ["default"],
+        "mainfont": "Source Sans Pro",
         "toccolor": "black",
         "titlepage": True,
         "titlepage-color": "ffffff",
@@ -798,7 +811,7 @@ author:
             "```{=latex}\n\\usepackage{tikz}\n\\makeatletter\n\\@ifundefined{landscapepage}{%\n\\newcommand{\\landscapepage@head}{%\n\\begin{tikzpicture}[remember picture,overlay]\n\\node[rotate=90,anchor=south west,inner sep=0pt] at ([xshift=2.5cm,yshift=2.5cm]current page.south west)\n{\\hbox to \\dimexpr\\paperheight-5cm\\relax{\\normalfont\\upshape\\small \\@title\\hfil \\@date}};\n\\node[rotate=90,anchor=south west,inner sep=0pt] at ([xshift=2.6cm,yshift=2.5cm]current page.south west)\n{\\hbox to \\dimexpr\\paperheight-5cm\\relax{\\leaders\\hrule height 0.4pt\\hfil}};\n\\end{tikzpicture}%\n}%\n\\newcommand{\\landscapepage@foot}{%\n\\begin{tikzpicture}[remember picture,overlay]\n\\node[rotate=90,anchor=north west,inner sep=0pt] at ([xshift=\\dimexpr\\paperwidth-2.6cm\\relax,yshift=2.5cm]current page.south west)\n{\\hbox to \\dimexpr\\paperheight-5cm\\relax{\\leaders\\hrule height 0.4pt\\hfil}};\n\\node[rotate=90,anchor=north west,inner sep=0pt] at ([xshift=\\dimexpr\\paperwidth-2.5cm\\relax,yshift=2.5cm]current page.south west)\n{\\hbox to \\dimexpr\\paperheight-5cm\\relax{\\normalfont\\upshape\\small \\@author\\hfil \\thepage}};\n\\end{tikzpicture}%\n}%\n\\newenvironment{landscapepage}{%\n\\clearpage\n\\pagestyle{empty}%\n\\blandscape\n\\addtolength{\\oddsidemargin}{2cm}%\n\\addtolength{\\textheight}{-4cm}%\n\\@colht=\\textheight\\relax\n\\@colroom=\\textheight\\relax\n\\vsize=\\textheight\\relax\n\\addtolength{\\textheight}{-2cm}%\n\\def\\@oddhead{\\landscapepage@head}%\n\\def\\@oddfoot{\\landscapepage@foot}%\n}{%\n\\elandscape\n\\clearpage\n\\@ifundefined{ps@eisvogel-header-footer}{}{\\pagestyle{eisvogel-header-footer}}%\n}\n}{}\n\\makeatother\n```\n",
             pandoc.SHEET_PAGE_INCLUDE,
             "```{=latex}\n\\usepackage{sourcecodepro}\n```\n",
-            pandoc.UNICODE_CHAR_INCLUDE,
+            pandoc.UNICODE_CHAR_XETEX_INCLUDE,
             _CREATOR_BLOCK,
         ],
         "pandoc-latex-environment": {
@@ -812,6 +825,7 @@ author:
         "colorlinks": True,
         "fontfamily": "sourcesanspro",
         "fontfamilyoptions": ["default"],
+        "mainfont": "Source Sans Pro",
         "toccolor": "black",
         "titlepage": False,
         "titlepage-color": "ffffff",
@@ -908,11 +922,12 @@ toc-own-page: true
         "toc-own-page": True,
         "fontfamily": "sourcesanspro",
         "fontfamilyoptions": ["default"],
+        "mainfont": "Source Sans Pro",
         "header-includes": [
             pandoc.CODE_FONT_INCLUDE,
             pandoc.LANDSCAPE_INCLUDE,
             pandoc.SHEET_PAGE_INCLUDE,
-            pandoc.UNICODE_CHAR_INCLUDE,
+            pandoc.UNICODE_CHAR_XETEX_INCLUDE,
             _CREATOR_BLOCK,
         ],
         "pandoc-latex-environment": {

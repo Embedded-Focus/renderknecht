@@ -43,6 +43,14 @@ ENV UV_PYTHON_DOWNLOADS=never
 # The names that start with lib and carry no version are libraries. The Chrome
 # headless shell needs them to start. The list comes from ldd on that binary. Node.js
 # needs libstdc++6, which is in that group too.
+# The PDF runs through XeTeX, which reads every Unicode character natively.
+# pdfLaTeX would stop on characters such as e⁻ (U+207B) that no mapping table
+# covers. texlive-xetex brings the engine, and texlive-latex-extra (a hard
+# dependency of it) brings fontspec and unicode-math. unicode-math needs an
+# OpenType math font; Debian puts latinmodern-math.otf in fonts-lmodern. The
+# font packages of the document (sourcesanspro, sourcecodepro) switch to the
+# OpenType fonts that texlive-fonts-extra already ships when they run under
+# XeTeX.
 RUN printf 'deb http://snapshot.debian.org/archive/debian/%s trixie main\n' "${SNAPSHOT_DATE}" \
         > /etc/apt/sources.list \
     && echo 'Acquire::Check-Valid-Until "false";' > /etc/apt/apt.conf.d/99snapshot \
@@ -52,6 +60,7 @@ RUN printf 'deb http://snapshot.debian.org/archive/debian/%s trixie main\n' "${S
         ca-certificates \
         curl \
         fontconfig \
+        fonts-lmodern=2.005-1 \
         fonts-liberation \
         graphviz=2.42.4-3 \
         libasound2t64 \
@@ -81,10 +90,19 @@ RUN printf 'deb http://snapshot.debian.org/archive/debian/%s trixie main\n' "${S
         texlive-latex-base=2024.20250309-1 \
         texlive-pictures=2024.20250309-1 \
         texlive-science=2024.20250309-2 \
+        texlive-xetex=2024.20250309-1 \
         wget \
         xz-utils \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+
+# XeTeX finds a font family through fontconfig, and fontconfig does not scan
+# the texlive tree. Link the Adobe OpenType fonts of texlive-fonts-extra into
+# the fontconfig path, so fontspec can find "Source Sans Pro" by name and the
+# render does not stop with "The font \"Source Sans Pro\" cannot be found".
+RUN mkdir -p /usr/local/share/fonts \
+    && ln -s /usr/share/texlive/texmf-dist/fonts/opentype/adobe /usr/local/share/fonts/texmf-adobe \
+    && fc-cache -f > /dev/null
 
 # uv installs and runs the Python project.
 RUN wget -q -O /tmp/uv.tar.gz \
@@ -204,10 +222,11 @@ ENV PATH=${PANDOC_DIR}/.venv/bin:${PATH}
 
 # One render at build time through the same code path that a real document uses. The
 # test uses preamble.yaml, the pandoc filters and the template. The front matter turns
-# on pandoc-crossref, so that filter runs too. If the render fails, the build stops.
-# The test finds the fault in the image build, not in the first real document. See
+# on pandoc-crossref, so that filter runs too. The e⁻ proves that XeTeX carries the
+# Unicode characters that stopped pdfLaTeX. If the render fails, the build stops. The
+# test finds the fault in the image build, not in the first real document. See
 # renderers/pandoc.py and util/pandoc_wrapper.py.
-RUN printf -- '---\npandoc-options: [crossref]\n---\n\n# One {#sec:one}\n\nA formula: $E=mc^2$\n\n```python\nprint("ok")\n```\n\nSee @sec:one.\n' \
+RUN printf -- '---\npandoc-options: [crossref]\n---\n\n# One {#sec:one}\n\nA formula: $E=mc^2$. An electron: e⁻. Water: H₂O.\n\n```python\nprint("ok")\n```\n\nSee @sec:one.\n' \
         > /tmp/smoke.md \
     && python -c "from pathlib import Path; from renderknecht.renderers import pandoc; tmp = []; Path('/tmp/smoke.pdf').write_bytes(pandoc.render_markdown(Path('/tmp/smoke.md').read_text(), tmp))" \
     && grep -q '%PDF-' /tmp/smoke.pdf && rm -f /tmp/smoke.md /tmp/smoke.pdf

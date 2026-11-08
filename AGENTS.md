@@ -248,6 +248,29 @@ type.
   package arrives through Recommends, not by name. If you turn Recommends off, add
   `texlive-latex-extra` to the package list. The render in the image build finds this
   kind of fault.
+- The PDF runs through XeTeX by default (`--pdf-engine xelatex` in
+  `util/pandoc_wrapper.py`). XeTeX reads every Unicode character natively, so a
+  document with `e⁻` or `H₂O` renders instead of dying with "not set up for use
+  with LaTeX", which is what pdfLaTeX does. Three driver pieces make XeTeX
+  work:
+  - The driver sets `mainfont: Source Sans Pro` when the document does not.
+    Eisvogel would otherwise load the `sourcesans` package as its XeTeX
+    default, and Debian trixie ships the older `sourcesanspro` name only.
+  - The image links the OpenType fonts of `texlive-fonts-extra` into the
+    fontconfig path (`/usr/local/share/fonts/`). XeTeX finds font families
+    through fontconfig, and fontconfig does not scan the texlive tree.
+  - The driver maps the one character the main font lacks, the subscript n,
+    through `UNICODE_CHAR_XETEX_INCLUDE` in `renderers/pandoc.py`. Source
+    Sans Pro carries the rest of the superscript and subscript family, and
+    its own glyphs look better than what `\textsuperscript` fakes.
+  The image needs `texlive-xetex` for the engine, and `fonts-lmodern` for
+  `latinmodern-math.otf`, which `unicode-math` loads as its default math font.
+  `PDF_ENGINE=pdflatex` opts a render back into pdfLaTeX; the driver then adds
+  the full superscript and subscript mapping block
+  (`UNICODE_CHAR_INCLUDE`). A preamble or document that loads `newunicodechar`
+  itself owns the mappings, and the driver stays out. A wrong font does not
+  fail the build, so look at a rendered PDF after you change the engine or
+  the font setup.
 
 - Add concise/precise docstrings to utility functions.
   - Docstrings use Python Sphinx format (e.g. `:param foo:`, `:returns:`, `:raises ValueError:`).

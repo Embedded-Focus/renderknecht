@@ -21,7 +21,7 @@ from graphviz import Source
 from yaml import SafeLoader
 
 from ..util import yaml as util_yaml
-from ..util.pandoc_wrapper import determine_pandoc_arguments
+from ..util.pandoc_wrapper import determine_pandoc_arguments, pdf_engine
 
 _RESOURCES = importlib.resources.files("renderknecht") / "resources"
 
@@ -77,10 +77,15 @@ CODE_FONT_INCLUDE = "```{=latex}\n\\usepackage{sourcecodepro}\n```\n"
 #: case in physics and chemistry text (``e⁻``, ``10⁶``, ``H₂O``), and the
 #: tables carry none of it. This block maps the family onto
 #: `\textsuperscript` and `\textsubscript`, which work in every font the
-#: document can set. The driver owns the block, for the same reason as the
-#: code font: a preamble file that replaces the bundled one must not lose
-#: the mappings. A preamble that declares its own `newunicodechar` mappings
-#: keeps the driver out, so a custom definition wins.
+#: document can set.
+#:
+#: The default engine is XeTeX (`DEFAULT_PDF_ENGINE`), which needs none of
+#: this: it reads every Unicode character natively, so the driver adds the
+#: block only when `PDF_ENGINE` opts back into pdfLaTeX. The driver owns the
+#: block, for the same reason as the code font: a preamble file that replaces
+#: the bundled one must not lose the mappings. A preamble that declares its
+#: own `newunicodechar` mappings keeps the driver out, so a custom definition
+#: wins.
 UNICODE_CHAR_INCLUDE = (
     "```{=latex}\n"
     "\\usepackage{newunicodechar}\n"
@@ -111,6 +116,16 @@ UNICODE_CHAR_INCLUDE = (
     "\\newunicodechar{₋}{\\textsubscript{-}}\n"
     "\\newunicodechar{ₙ}{\\textsubscript{n}}\n"
     "```\n"
+)
+
+#: The one character that the default main font lacks. Source Sans Pro carries
+#: the whole superscript and subscript family except the subscript n (`ₙ`),
+#: which would print as a blank. Under XeTeX, the font's own superscript and
+#: subscript glyphs are better than what `\textsuperscript` fakes, so the
+#: driver maps only this one character. Under pdfLaTeX, the full family needs
+#: the mapping above instead.
+UNICODE_CHAR_XETEX_INCLUDE = (
+    "```{=latex}\n\\usepackage{newunicodechar}\n\\newunicodechar{ₙ}{\\textsubscript{n}}\n```\n"
 )
 
 #: Landscape sheets for wide tables. A document asks for one with
@@ -520,6 +535,15 @@ DEFAULT_FONT_METADATA = {
     "fontfamilyoptions": ["default"],
 }
 
+#: The main font that XeTeX needs by its real family name. Eisvogel loads the
+#: package `sourcesans` as its default font under XeTeX, but no document sets
+#: a font family through it, and Debian trixie ships the older package name
+#: `sourcesanspro` only. Setting `mainfont` makes Eisvogel skip that block
+#: and pick the font through fontspec instead, which knows the OpenType fonts
+#: that `texlive-fonts-extra` ships. The code font comes from the
+#: `sourcecodepro` include above, the math font from `fonts-lmodern`.
+DEFAULT_MAINFONT = "Source Sans Pro"
+
 
 def _as_include_list(value: object) -> list[str]:
     """Return a header-includes value as a list of LaTeX include strings.
@@ -795,6 +819,11 @@ def augment_yaml_preamble(hedgedoc_markdown: str) -> tuple[str, util_yaml.YAMLMe
         # overrides fontfamily or header-includes must not lose Source Code Pro,
         # or code snippets fall back to Latin Modern Typewriter.
         augmented_metadata = {**DEFAULT_FONT_METADATA, **augmented_metadata}
+        # Under XeTeX, Eisvogel needs a real `mainfont`, or it falls back to
+        # the `sourcesans` package that Debian trixie does not ship. A
+        # document that sets its own `mainfont` wins.
+        if pdf_engine() != "pdflatex":
+            augmented_metadata.setdefault("mainfont", DEFAULT_MAINFONT)
         code_font_includes = _as_include_list(augmented_metadata.get("header-includes"))
         if not any("sourcecodepro" in include for include in code_font_includes):
             code_font_includes.append(CODE_FONT_INCLUDE)
@@ -825,12 +854,19 @@ def augment_yaml_preamble(hedgedoc_markdown: str) -> tuple[str, util_yaml.YAMLMe
         if missing_sheets:
             driver_includes.append(_sheet_page_include(missing_sheets))
 
-        # The Unicode character mappings go the same way. A preamble or a
-        # document that loads newunicodechar itself owns the mappings, and a
-        # second `\newunicodechar` for the same character stops the build with
-        # an "already defined" error.
-        if not any("newunicodechar" in include for include in driver_includes):
-            driver_includes.append(UNICODE_CHAR_INCLUDE)
+        # The Unicode character mappings go the same way. Under pdfLaTeX, the
+        # full superscript and subscript family needs a mapping, because the
+        # inputenc tables carry none of it. Under XeTeX, only the subscript n
+        # needs one, because that is the one character the main font lacks.
+        # A preamble or a document that loads newunicodechar itself owns the
+        # mappings, and a second `\newunicodechar` for the same character stops
+        # the build with an "already defined" error.
+        owned = any("newunicodechar" in include for include in driver_includes)
+        if not owned:
+            if pdf_engine() == "pdflatex":
+                driver_includes.append(UNICODE_CHAR_INCLUDE)
+            else:
+                driver_includes.append(UNICODE_CHAR_XETEX_INCLUDE)
         augmented_metadata["header-includes"] = driver_includes
         environments = _merge_environments(augmented_metadata.get("pandoc-latex-environment"), None)
         for sheet_environment in (LANDSCAPE_ENVIRONMENT, *SHEET_PAGE_SIZES):

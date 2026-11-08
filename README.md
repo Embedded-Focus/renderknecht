@@ -177,6 +177,30 @@ table needs both the room and the turn:
 :::
 ```
 
+## Special characters in the text
+
+Renderknecht makes the PDF with XeTeX. XeTeX is a typesetting engine that reads
+Unicode text directly. A document can use characters such as `e⁻`, `10⁶`, or
+`H₂O` without extra setup. These characters are common in physics and chemistry
+text.
+
+Earlier renders went through pdfLaTeX. pdfLaTeX reads characters through tables,
+and the tables do not carry the superscript and subscript family. A document with
+`e⁻` stopped with this error:
+
+```
+! LaTeX Error: Unicode character ⁻ (U+207B) not set up for use with LaTeX.
+```
+
+The renderer sets `mainfont: Source Sans Pro` when the document sets no main
+font. Eisvogel, the LaTeX template, would otherwise load a font package that
+Debian does not ship. A document that sets `mainfont` itself keeps its font.
+
+To render with pdfLaTeX again, set `PDF_ENGINE=pdflatex` inside the container.
+The renderer then maps the superscript and subscript characters to LaTeX
+commands. A preamble or a document that loads `newunicodechar` keeps its own
+mappings, and the renderer stays out.
+
 ## Pinned versions
 
 `Dockerfile.renderknecht` fixes every part of the toolchain. The base image is
@@ -322,6 +346,7 @@ The wrapper exposes the same override mechanism as the container directly:
 | `AUTHORS_YAML=/path` | Override just the authors map (highest priority) |
 | `MERMAID_ARGS` | Extra arguments for `mmdc`, for example to change the page fit. You can use this inside the container only |
 | `MERMAID_PUPPETEER_CONFIG` | Path to a different puppeteer configuration file. You can use this inside the container only |
+| `PDF_ENGINE` | LaTeX engine that makes the PDF, for example `pdflatex`. The default is `xelatex`. You can use this inside the container only |
 
 ```sh
 podman run --rm -i \
