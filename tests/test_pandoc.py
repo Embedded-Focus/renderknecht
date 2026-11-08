@@ -241,6 +241,57 @@ def test_augment_yaml_preamble_keeps_document_sheet_block() -> None:
         assert metadata["pandoc-latex-environment"][name] == [name]
 
 
+def test_augment_yaml_preamble_adds_unicode_char_mappings_without_preamble() -> None:
+    """A stripped preamble must still map the superscript and subscript family.
+
+    pdfLaTeX reads UTF-8 through the inputenc tables. The tables carry none of
+    the superscript or subscript characters, so a document with ``e⁻`` stops
+    with "Unicode character ⁻ (U+207B) not set up for use with LaTeX". The
+    driver owns the mappings, so the character renders instead.
+    """
+    os.environ["PREAMBLE_YAML"] = "/dev/null"
+    tmp_files: pandoc.TemporaryFiles = []
+    _, metadata = pandoc.prepare_markdown("---\ntitle: test\n---\n", tmp_files)
+    assert metadata is not None
+    includes = metadata.get("header-includes", [])
+    assert any("newunicodechar" in entry for entry in includes)
+    assert sum("newunicodechar" in entry for entry in includes) == 1
+    assert any("\\newunicodechar{⁻}" in entry for entry in includes)
+    assert any("\\newunicodechar{₂}" in entry for entry in includes)
+
+
+def test_augment_yaml_preamble_adds_unicode_char_mappings_with_preamble() -> None:
+    """The bundled preamble does not own newunicodechar, so the driver adds it."""
+    tmp_files: pandoc.TemporaryFiles = []
+    _, metadata = pandoc.prepare_markdown("---\ntitle: test\n---\n", tmp_files)
+    assert metadata is not None
+    includes = metadata.get("header-includes", [])
+    assert sum("newunicodechar" in entry for entry in includes) == 1
+
+
+def test_augment_yaml_preamble_keeps_document_unicode_char_block() -> None:
+    """A document that declares its own mappings is answered, not doubled.
+
+    A second `\\newunicodechar` for a character the document already mapped
+    only warns, but the driver's later definition would silently win. The
+    driver stays out entirely, so a document's custom mapping keeps priority.
+    """
+    document = (
+        "---\nheader-includes:\n- |\n  ```{=latex}\n"
+        "  \\usepackage{newunicodechar}\n"
+        "  \\newunicodechar{⁻}{\\ensuremath{e^-}}\n"
+        "  ```\n---\n\ntext\n"
+    )
+    os.environ["PREAMBLE_YAML"] = "/dev/null"
+    tmp_files: pandoc.TemporaryFiles = []
+    _, metadata = pandoc.prepare_markdown(document, tmp_files)
+    assert metadata is not None
+    includes = metadata.get("header-includes", [])
+    assert pandoc.UNICODE_CHAR_INCLUDE not in includes
+    assert sum("newunicodechar" in entry for entry in includes) == 1
+    assert any("\\ensuremath{e^-}" in entry for entry in includes)
+
+
 def test_sheet_page_include_writes_layout_globally_and_captures_per_sheet() -> None:
     """The sheet layout survives the output routine's global writes.
 
@@ -610,6 +661,7 @@ def test_extract_yaml_metadata() -> None:
             pandoc.CODE_FONT_INCLUDE,
             pandoc.LANDSCAPE_INCLUDE,
             pandoc.SHEET_PAGE_INCLUDE,
+            pandoc.UNICODE_CHAR_INCLUDE,
             _CREATOR_BLOCK,
         ],
         "pandoc-latex-environment": {
@@ -648,6 +700,7 @@ header-includes:
             pandoc.CODE_FONT_INCLUDE,
             pandoc.LANDSCAPE_INCLUDE,
             pandoc.SHEET_PAGE_INCLUDE,
+            pandoc.UNICODE_CHAR_INCLUDE,
             _CREATOR_BLOCK,
         ],
         "pandoc-latex-environment": {
@@ -689,6 +742,7 @@ author:
             "```{=latex}\n\\usepackage{tikz}\n\\makeatletter\n\\@ifundefined{landscapepage}{%\n\\newcommand{\\landscapepage@head}{%\n\\begin{tikzpicture}[remember picture,overlay]\n\\node[rotate=90,anchor=south west,inner sep=0pt] at ([xshift=2.5cm,yshift=2.5cm]current page.south west)\n{\\hbox to \\dimexpr\\paperheight-5cm\\relax{\\normalfont\\upshape\\small \\@title\\hfil \\@date}};\n\\node[rotate=90,anchor=south west,inner sep=0pt] at ([xshift=2.6cm,yshift=2.5cm]current page.south west)\n{\\hbox to \\dimexpr\\paperheight-5cm\\relax{\\leaders\\hrule height 0.4pt\\hfil}};\n\\end{tikzpicture}%\n}%\n\\newcommand{\\landscapepage@foot}{%\n\\begin{tikzpicture}[remember picture,overlay]\n\\node[rotate=90,anchor=north west,inner sep=0pt] at ([xshift=\\dimexpr\\paperwidth-2.6cm\\relax,yshift=2.5cm]current page.south west)\n{\\hbox to \\dimexpr\\paperheight-5cm\\relax{\\leaders\\hrule height 0.4pt\\hfil}};\n\\node[rotate=90,anchor=north west,inner sep=0pt] at ([xshift=\\dimexpr\\paperwidth-2.5cm\\relax,yshift=2.5cm]current page.south west)\n{\\hbox to \\dimexpr\\paperheight-5cm\\relax{\\normalfont\\upshape\\small \\@author\\hfil \\thepage}};\n\\end{tikzpicture}%\n}%\n\\newenvironment{landscapepage}{%\n\\clearpage\n\\pagestyle{empty}%\n\\blandscape\n\\addtolength{\\oddsidemargin}{2cm}%\n\\addtolength{\\textheight}{-4cm}%\n\\@colht=\\textheight\\relax\n\\@colroom=\\textheight\\relax\n\\vsize=\\textheight\\relax\n\\addtolength{\\textheight}{-2cm}%\n\\def\\@oddhead{\\landscapepage@head}%\n\\def\\@oddfoot{\\landscapepage@foot}%\n}{%\n\\elandscape\n\\clearpage\n\\@ifundefined{ps@eisvogel-header-footer}{}{\\pagestyle{eisvogel-header-footer}}%\n}\n}{}\n\\makeatother\n```\n",
             pandoc.SHEET_PAGE_INCLUDE,
             "```{=latex}\n\\usepackage{sourcecodepro}\n```\n",
+            pandoc.UNICODE_CHAR_INCLUDE,
             _CREATOR_BLOCK,
         ],
         "pandoc-latex-environment": {
@@ -744,6 +798,7 @@ author:
             "```{=latex}\n\\usepackage{tikz}\n\\makeatletter\n\\@ifundefined{landscapepage}{%\n\\newcommand{\\landscapepage@head}{%\n\\begin{tikzpicture}[remember picture,overlay]\n\\node[rotate=90,anchor=south west,inner sep=0pt] at ([xshift=2.5cm,yshift=2.5cm]current page.south west)\n{\\hbox to \\dimexpr\\paperheight-5cm\\relax{\\normalfont\\upshape\\small \\@title\\hfil \\@date}};\n\\node[rotate=90,anchor=south west,inner sep=0pt] at ([xshift=2.6cm,yshift=2.5cm]current page.south west)\n{\\hbox to \\dimexpr\\paperheight-5cm\\relax{\\leaders\\hrule height 0.4pt\\hfil}};\n\\end{tikzpicture}%\n}%\n\\newcommand{\\landscapepage@foot}{%\n\\begin{tikzpicture}[remember picture,overlay]\n\\node[rotate=90,anchor=north west,inner sep=0pt] at ([xshift=\\dimexpr\\paperwidth-2.6cm\\relax,yshift=2.5cm]current page.south west)\n{\\hbox to \\dimexpr\\paperheight-5cm\\relax{\\leaders\\hrule height 0.4pt\\hfil}};\n\\node[rotate=90,anchor=north west,inner sep=0pt] at ([xshift=\\dimexpr\\paperwidth-2.5cm\\relax,yshift=2.5cm]current page.south west)\n{\\hbox to \\dimexpr\\paperheight-5cm\\relax{\\normalfont\\upshape\\small \\@author\\hfil \\thepage}};\n\\end{tikzpicture}%\n}%\n\\newenvironment{landscapepage}{%\n\\clearpage\n\\pagestyle{empty}%\n\\blandscape\n\\addtolength{\\oddsidemargin}{2cm}%\n\\addtolength{\\textheight}{-4cm}%\n\\@colht=\\textheight\\relax\n\\@colroom=\\textheight\\relax\n\\vsize=\\textheight\\relax\n\\addtolength{\\textheight}{-2cm}%\n\\def\\@oddhead{\\landscapepage@head}%\n\\def\\@oddfoot{\\landscapepage@foot}%\n}{%\n\\elandscape\n\\clearpage\n\\@ifundefined{ps@eisvogel-header-footer}{}{\\pagestyle{eisvogel-header-footer}}%\n}\n}{}\n\\makeatother\n```\n",
             pandoc.SHEET_PAGE_INCLUDE,
             "```{=latex}\n\\usepackage{sourcecodepro}\n```\n",
+            pandoc.UNICODE_CHAR_INCLUDE,
             _CREATOR_BLOCK,
         ],
         "pandoc-latex-environment": {
@@ -857,6 +912,7 @@ toc-own-page: true
             pandoc.CODE_FONT_INCLUDE,
             pandoc.LANDSCAPE_INCLUDE,
             pandoc.SHEET_PAGE_INCLUDE,
+            pandoc.UNICODE_CHAR_INCLUDE,
             _CREATOR_BLOCK,
         ],
         "pandoc-latex-environment": {

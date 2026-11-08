@@ -71,6 +71,48 @@ _CREATOR = (
 #: preamble file can lose the code font.
 CODE_FONT_INCLUDE = "```{=latex}\n\\usepackage{sourcecodepro}\n```\n"
 
+#: pdfLaTeX reads UTF-8 through the inputenc tables. Characters that the
+#: tables do not list stop the build with "Unicode character ... not set up
+#: for use with LaTeX". The superscript and subscript family is a common
+#: case in physics and chemistry text (``e⁻``, ``10⁶``, ``H₂O``), and the
+#: tables carry none of it. This block maps the family onto
+#: `\textsuperscript` and `\textsubscript`, which work in every font the
+#: document can set. The driver owns the block, for the same reason as the
+#: code font: a preamble file that replaces the bundled one must not lose
+#: the mappings. A preamble that declares its own `newunicodechar` mappings
+#: keeps the driver out, so a custom definition wins.
+UNICODE_CHAR_INCLUDE = (
+    "```{=latex}\n"
+    "\\usepackage{newunicodechar}\n"
+    "\\newunicodechar{⁻}{\\textsuperscript{-}}\n"
+    "\\newunicodechar{⁺}{\\textsuperscript{+}}\n"
+    "\\newunicodechar{⁰}{\\textsuperscript{0}}\n"
+    "\\newunicodechar{¹}{\\textsuperscript{1}}\n"
+    "\\newunicodechar{²}{\\textsuperscript{2}}\n"
+    "\\newunicodechar{³}{\\textsuperscript{3}}\n"
+    "\\newunicodechar{⁴}{\\textsuperscript{4}}\n"
+    "\\newunicodechar{⁵}{\\textsuperscript{5}}\n"
+    "\\newunicodechar{⁶}{\\textsuperscript{6}}\n"
+    "\\newunicodechar{⁷}{\\textsuperscript{7}}\n"
+    "\\newunicodechar{⁸}{\\textsuperscript{8}}\n"
+    "\\newunicodechar{⁹}{\\textsuperscript{9}}\n"
+    "\\newunicodechar{ⁿ}{\\textsuperscript{n}}\n"
+    "\\newunicodechar{₀}{\\textsubscript{0}}\n"
+    "\\newunicodechar{₁}{\\textsubscript{1}}\n"
+    "\\newunicodechar{₂}{\\textsubscript{2}}\n"
+    "\\newunicodechar{₃}{\\textsubscript{3}}\n"
+    "\\newunicodechar{₄}{\\textsubscript{4}}\n"
+    "\\newunicodechar{₅}{\\textsubscript{5}}\n"
+    "\\newunicodechar{₆}{\\textsubscript{6}}\n"
+    "\\newunicodechar{₇}{\\textsubscript{7}}\n"
+    "\\newunicodechar{₈}{\\textsubscript{8}}\n"
+    "\\newunicodechar{₉}{\\textsubscript{9}}\n"
+    "\\newunicodechar{₊}{\\textsubscript{+}}\n"
+    "\\newunicodechar{₋}{\\textsubscript{-}}\n"
+    "\\newunicodechar{ₙ}{\\textsubscript{n}}\n"
+    "```\n"
+)
+
 #: Landscape sheets for wide tables. A document asks for one with
 #: `::: landscapepage`, and this code answers that request.
 #:
@@ -782,6 +824,13 @@ def augment_yaml_preamble(hedgedoc_markdown: str) -> tuple[str, util_yaml.YAMLMe
         ]
         if missing_sheets:
             driver_includes.append(_sheet_page_include(missing_sheets))
+
+        # The Unicode character mappings go the same way. A preamble or a
+        # document that loads newunicodechar itself owns the mappings, and a
+        # second `\newunicodechar` for the same character stops the build with
+        # an "already defined" error.
+        if not any("newunicodechar" in include for include in driver_includes):
+            driver_includes.append(UNICODE_CHAR_INCLUDE)
         augmented_metadata["header-includes"] = driver_includes
         environments = _merge_environments(augmented_metadata.get("pandoc-latex-environment"), None)
         for sheet_environment in (LANDSCAPE_ENVIRONMENT, *SHEET_PAGE_SIZES):
