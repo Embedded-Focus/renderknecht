@@ -768,6 +768,7 @@ author:
         "colorlinks": True,
         "fontfamily": "sourcesanspro",
         "fontfamilyoptions": ["default"],
+        "link-citations": True,
         "mainfont": "Source Sans Pro",
         "toccolor": "black",
         "titlepage": True,
@@ -825,6 +826,7 @@ author:
         "colorlinks": True,
         "fontfamily": "sourcesanspro",
         "fontfamilyoptions": ["default"],
+        "link-citations": True,
         "mainfont": "Source Sans Pro",
         "toccolor": "black",
         "titlepage": False,
@@ -833,6 +835,24 @@ author:
         "titlepage-text-color": "010326",
     }
     assert metadata["date"] == datetime.date.today().isoformat()
+    assert not tmp_files
+
+
+def test_document_can_disable_linked_citations() -> None:
+    """Document metadata can opt out of the linked-citation default."""
+    tmp_files: pandoc.TemporaryFiles = []
+    _, metadata = pandoc.prepare_markdown(
+        """---
+link-citations: false
+---
+
+See [@source].
+""",
+        tmp_files,
+    )
+
+    assert metadata is not None
+    assert metadata["link-citations"] is False
     assert not tmp_files
 
 

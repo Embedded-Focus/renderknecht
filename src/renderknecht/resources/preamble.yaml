@@ -5,6 +5,10 @@ titlepage-rule-color: "f25c05"
 titlepage-text-color: "010326"
 titlepage: true
 colorlinks: true
+# Turn in-text citation markers such as [1] into links to their bibliography
+# entries. A document can opt out with `link-citations: false` in its own front
+# matter; document metadata has priority over this bundled default.
+link-citations: true
 toccolor: black
 # Eisvogel loads the LaTeX package `sourcesans` when you set no font family. Debian
 # trixie has the older name `sourcesanspro` only, and the typeface is the same. So we

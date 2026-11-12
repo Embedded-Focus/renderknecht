@@ -93,6 +93,19 @@ titlepage-logo: logo.pdf
 
 Authors listed in `authors.yaml` are expanded to their full display names automatically.
 
+### Citation links
+
+Renderknecht enables Pandoc's `link-citations` metadata by default. Citation markers
+such as `[1]` therefore link to the matching bibliography entry, while URLs printed
+by the bibliography style remain external links. A document can disable the internal
+citation links in its front matter:
+
+```yaml
+---
+link-citations: false
+---
+```
+
 ### Boxes and wide tables
 
 Five marked-up blocks work in every document, and nothing is needed in front
