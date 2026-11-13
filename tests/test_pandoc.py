@@ -856,6 +856,34 @@ See [@source].
     assert not tmp_files
 
 
+def test_append_references_localizes_german_heading() -> None:
+    """A German language tag localizes the generated bibliography heading."""
+    metadata = {"lang": "de-AT", "references": [{"id": "source"}]}
+
+    markdown = pandoc.append_references("Text", metadata)
+
+    assert markdown.endswith("\n\n# Literaturverzeichnis\n")
+    assert "# References" not in markdown
+
+
+def test_append_references_keeps_english_default() -> None:
+    """Documents without a supported language retain the historical heading."""
+    metadata = {"references": [{"id": "source"}]}
+
+    assert pandoc.append_references("Text", metadata).endswith("\n\n# References\n")
+
+
+def test_append_references_defers_to_explicit_title() -> None:
+    """Citeproc owns an explicitly configured reference section title."""
+    metadata = {
+        "lang": "de-AT",
+        "reference-section-title": "Quellen und Literatur",
+        "references": [{"id": "source"}],
+    }
+
+    assert pandoc.append_references("Text", metadata) == "Text"
+
+
 def test_date_today_sentinel_replaced() -> None:
     """'today' in the date field is replaced with the current ISO date."""
     os.environ["PREAMBLE_YAML"] = "/dev/null"

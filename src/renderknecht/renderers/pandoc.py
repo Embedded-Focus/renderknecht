@@ -891,7 +891,18 @@ def augment_yaml_preamble(hedgedoc_markdown: str) -> tuple[str, util_yaml.YAMLMe
 
 def append_references(markdown: str, yaml_metadata: util_yaml.YAMLMetadata) -> str:
     if yaml_metadata and "references" in yaml_metadata:
-        return markdown + "\n\n# References\n"
+        # Citeproc creates its own heading when the document explicitly sets
+        # `reference-section-title`. Appending another one here would produce
+        # duplicate headings. Without an override, keep the historical English
+        # default and localize German documents from their BCP 47 language tag.
+        if "reference-section-title" in yaml_metadata:
+            return markdown
+        language = yaml_metadata.get("lang")
+        primary_language = (
+            language.replace("_", "-").partition("-")[0].lower() if isinstance(language, str) else ""
+        )
+        title = "Literaturverzeichnis" if primary_language == "de" else "References"
+        return f"{markdown}\n\n# {title}\n"
     return markdown
 
 

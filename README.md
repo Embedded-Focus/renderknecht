@@ -106,6 +106,19 @@ link-citations: false
 ---
 ```
 
+### Bibliography heading
+
+Renderknecht derives the generated bibliography heading from the document language.
+German language tags such as `lang: de`, `lang: de-AT`, or `lang: de-DE` produce
+`Literaturverzeichnis`; documents without a German language tag retain `References`.
+Set Pandoc's `reference-section-title` metadata to use a custom heading:
+
+```yaml
+---
+reference-section-title: Quellen und Literatur
+---
+```
+
 ### Boxes and wide tables
 
 Five marked-up blocks work in every document, and nothing is needed in front
